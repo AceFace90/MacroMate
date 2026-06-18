@@ -11,6 +11,7 @@ import gemini from '../services/gemini';
 import { useLog, todayStr } from '../store/logStore';
 import { useGeminiKey } from '../hooks/useGeminiKey';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
+import LabelScannerModal from '../components/LabelScannerModal';
 
 // ── Search result item ────────────────────────────────────────────────────────
 
@@ -83,6 +84,9 @@ export default function FoodSearchScreen({ navigation }) {
 
   // Barcode scanner
   const [scannerVisible, setScannerVisible] = useState(false);
+
+  // Label scanner
+  const [labelVisible, setLabelVisible] = useState(false);
 
   // AI meal mode
   const [mode, setMode] = useState('search'); // 'search' | 'ai'
@@ -212,9 +216,16 @@ export default function FoodSearchScreen({ navigation }) {
               {searching
                 ? <ActivityIndicator size="small" color={theme.accent} />
                 : (
-                  <TouchableOpacity onPress={() => setScannerVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={[styles.scanIcon, { color: theme.accent }]}>▦</Text>
-                  </TouchableOpacity>
+                  <View style={styles.iconRow}>
+                    <TouchableOpacity onPress={() => setScannerVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={[styles.scanIcon, { color: theme.accent }]}>▦</Text>
+                    </TouchableOpacity>
+                    {hasKey && (
+                      <TouchableOpacity onPress={() => setLabelVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={[styles.scanIcon, { color: theme.accent }]}>📷</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )
               }
             </View>
@@ -299,6 +310,12 @@ export default function FoodSearchScreen({ navigation }) {
         onClose={() => setScannerVisible(false)}
         onFound={(item) => logFood(item)}
       />
+      <LabelScannerModal
+        visible={labelVisible}
+        onClose={() => setLabelVisible(false)}
+        onFound={(item) => logFood(item)}
+        geminiKey={geminiKey}
+      />
     </SafeAreaView>
   );
 }
@@ -318,6 +335,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   searchInput: { flex: 1, fontSize: typography.sizes.base },
+  iconRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   scanIcon: { fontSize: 22, fontWeight: '700' },
   result: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], paddingHorizontal: spacing[1] },
   foodName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },

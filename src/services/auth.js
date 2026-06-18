@@ -13,9 +13,15 @@ WebBrowser.maybeCompleteAuthSession();
 // the system browser and capture the redirect back to the app scheme.
 export async function signInWithGoogle() {
   if (Platform.OS === 'web') {
+    // Use the app root for the redirect — never the current in-app route,
+    // since sub-paths (e.g. /MacroMate/Login) aren't in the Supabase allowlist.
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const redirectTo = isLocal
+      ? `${window.location.protocol}//${window.location.host}/`
+      : 'https://aceface90.github.io/MacroMate/';
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href.split('#')[0].split('?')[0] },
+      options: { redirectTo },
     });
     if (error) throw error;
     return data;

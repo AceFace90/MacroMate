@@ -105,8 +105,61 @@ Rules:
   return JSON.parse(clean);
 }
 
+// Extract nutrition facts from a label photo.
+// imageBase64: base64-encoded JPEG/PNG string (no data-URI prefix).
+// Returns { name, calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg, sugar_g, serving_size_g, serving_size_display, confidence_score }
+async function analyzeLabel(imageBase64, mimeType = 'image/jpeg', key) {
+  const prompt = `You are a nutrition label reader. The image shows a food nutrition label.
+Extract the nutrition information and return ONLY valid JSON:
+{
+  "name": "product name or description",
+  "serving_size_display": "1 cup (240ml)",
+  "serving_size_g": 240,
+  "calories": 150,
+  "protein_g": 5,
+  "carbs_g": 20,
+  "fat_g": 6,
+  "fiber_g": 2,
+  "sodium_mg": 300,
+  "sugar_g": 8,
+  "confidence_score": 90
+}
+
+Rules:
+- Values must be PER SERVING (the serving size shown on the label)
+- serving_size_g: convert to grams/ml if given in other units (1 cup ≈ 240, 1 oz ≈ 28)
+- confidence_score: 0–100 based on label clarity
+- If a nutrient is not shown, use 0
+- Return ONLY the JSON, no markdown`;
+
+  const res = await fetch(`${GEMINI_URL}?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inlineData: { mimeType, data: imageBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini API error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(clean);
+}
+
 export default {
   decomposeMeal,
   analyzeFood,
+  analyzeLabel,
   isAvailable: () => false, // checked via key presence in context, not here
 };
