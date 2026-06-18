@@ -4,6 +4,7 @@
     "slug": "macromate",
     "version": "2.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -23,7 +24,8 @@
       "shortName": "MacroMate",
       "description": "AI-powered food & nutrition tracker",
       "themeColor": "#1a1a1a",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#1a1a1a",
+      "favicon": "./assets/favicon.png"
     },
     "devClient": {
       "silentLaunch": false
