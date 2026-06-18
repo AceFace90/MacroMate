@@ -25,6 +25,9 @@
       "themeColor": "#1a1a1a",
       "backgroundColor": "#1a1a1a"
     },
+    "devClient": {
+      "silentLaunch": false
+    },
     "extra": {
       "supabaseUrl": "https://vzcmeubfdjdwqhxihusw.supabase.co",
       "supabaseAnonKey": "sb_publishable_HE9bJbtQHMvmO1S0nHZ_-g_qoNFDskA"

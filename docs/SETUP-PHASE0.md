@@ -70,7 +70,7 @@ create trigger on_auth_user_created
 
 ### 2c. Redirect URLs (Supabase → Authentication → URL Configuration)
 Add the URLs the app redirects back to after login:
-- Web dev: `http://localhost:8081`
+- Web dev: `http://localhost:8082`
 - Native: `macromate://auth-callback` (the app scheme from `app.json`)
 
 ---
@@ -80,7 +80,7 @@ Add the URLs the app redirects back to after login:
 ```bash
 cd /Users/wcorrey/Claude/personal/MacroMate
 npm install
-npm run web        # opens http://localhost:8081
+npm run web        # opens http://localhost:8082
 ```
 
 **Phase 0 exit gate:**
