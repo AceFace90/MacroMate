@@ -10,6 +10,7 @@ import foodMatching from '../services/foodMatching';
 import gemini from '../services/gemini';
 import { useLog, todayStr } from '../store/logStore';
 import { useGeminiKey } from '../hooks/useGeminiKey';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 
 // ── Search result item ────────────────────────────────────────────────────────
 
@@ -79,6 +80,9 @@ export default function FoodSearchScreen({ navigation }) {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState(null);
+
+  // Barcode scanner
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   // AI meal mode
   const [mode, setMode] = useState('search'); // 'search' | 'ai'
@@ -205,7 +209,14 @@ export default function FoodSearchScreen({ navigation }) {
                 autoFocus
                 autoCorrect={false}
               />
-              {searching && <ActivityIndicator size="small" color={theme.accent} />}
+              {searching
+                ? <ActivityIndicator size="small" color={theme.accent} />
+                : (
+                  <TouchableOpacity onPress={() => setScannerVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={[styles.scanIcon, { color: theme.accent }]}>▦</Text>
+                  </TouchableOpacity>
+                )
+              }
             </View>
             {results.length > 0 ? (
               <FlatList
@@ -282,6 +293,12 @@ export default function FoodSearchScreen({ navigation }) {
           </>
         )}
       </View>
+
+      <BarcodeScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onFound={(item) => logFood(item)}
+      />
     </SafeAreaView>
   );
 }
@@ -301,6 +318,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   searchInput: { flex: 1, fontSize: typography.sizes.base },
+  scanIcon: { fontSize: 22, fontWeight: '700' },
   result: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], paddingHorizontal: spacing[1] },
   foodName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
   macros: { fontSize: typography.sizes.xs, marginTop: 2 },
