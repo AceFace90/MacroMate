@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web
+        run: npx expo export --platform web
+
+      - name: Fix asset paths for GitHub Pages subdirectory
+        run: |
+          sed -i 's|"/_expo/|"/MacroMate/_expo/|g' dist/index.html
+          sed -i 's|src="/_expo/|src="/MacroMate/_expo/|g' dist/index.html
+
+          IONICONS_FILE=$(find dist/assets -name "Ionicons.*.ttf" | head -1 | sed 's|dist/||')
+          if [ -n "$IONICONS_FILE" ]; then
+            FONT_CSS="<style>@font-face{font-family:'Ionicons';src:url('/MacroMate/${IONICONS_FILE}') format('truetype');font-weight:normal;font-style:normal;}</style>"
+            sed -i "s|</head>|${FONT_CSS}</head>|" dist/index.html
+          fi
+
+          sed -i 's|</head>|<link rel="manifest" href="/MacroMate/manifest.json"></head>|' dist/index.html
+
+          cp dist/index.html dist/404.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5
