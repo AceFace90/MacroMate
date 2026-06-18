@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "MacroMate",
+    "slug": "macromate",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "scheme": "macromate",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.macromate.app"
+    },
+    "android": {
+      "package": "com.macromate.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "MacroMate",
+      "shortName": "MacroMate",
+      "description": "AI-powered food & nutrition tracker",
+      "themeColor": "#1a1a1a",
+      "backgroundColor": "#1a1a1a"
+    },
+    "extra": {
+      "supabaseUrl": "https://vzcmeubfdjdwqhxihusw.supabase.co",
+      "supabaseAnonKey": "sb_publishable_HE9bJbtQHMvmO1S0nHZ_-g_qoNFDskA"
+    }
+  }
+}
