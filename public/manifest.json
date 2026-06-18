@@ -1,0 +1,25 @@
+{
+  "name": "MacroMate",
+  "short_name": "MacroMate",
+  "description": "AI-powered food & nutrition tracker",
+  "start_url": "/MacroMate/",
+  "scope": "/MacroMate/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    {
+      "src": "/MacroMate/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/MacroMate/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -199,11 +199,22 @@ export default function ProfileScreen({ session, onTargetsChange }) {
           )}
         </Card>
 
+        <Card style={[styles.card, { marginTop: spacing[5] }]}>
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>DATA SOURCES</Text>
+          <Text style={[styles.aiNote, { color: theme.textMuted }]}>
+            Food data sourced from the{' '}
+            <Text style={{ fontWeight: '600' }}>USDA FoodData Central</Text> (public domain),{' '}
+            <Text style={{ fontWeight: '600' }}>Open Food Facts</Text> (CC BY-SA 4.0),
+            and the <Text style={{ fontWeight: '600' }}>Australian AFCD</Text>.
+            Nutritional values are estimates and may not be accurate for all products.
+          </Text>
+        </Card>
+
         <Button
           title="Sign out"
           variant="ghost"
           onPress={() => signOut().catch(e => Alert.alert('Error', e.message))}
-          style={{ marginTop: spacing[5] }}
+          style={{ marginTop: spacing[3] }}
         />
       </ScrollView>
     </SafeAreaView>

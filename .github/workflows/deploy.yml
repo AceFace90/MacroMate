@@ -47,7 +47,13 @@ jobs:
             sed -i "s|</head>|${FONT_CSS}</head>|" dist/index.html
           fi
 
-          sed -i 's|</head>|<link rel="manifest" href="/MacroMate/manifest.json"></head>|' dist/index.html
+          # PWA manifest + mobile meta tags
+          cp public/manifest.json dist/manifest.json
+          cp assets/icon-192.png dist/assets/icon-192.png 2>/dev/null || true
+          cp assets/icon-512.png dist/assets/icon-512.png 2>/dev/null || true
+
+          META_TAGS='<link rel="manifest" href="/MacroMate/manifest.json"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="MacroMate"><link rel="apple-touch-icon" href="/MacroMate/assets/icon-192.png"><meta name="theme-color" content="#1a1a1a">'
+          sed -i "s|</head>|${META_TAGS}</head>|" dist/index.html
 
           cp dist/index.html dist/404.html
 
