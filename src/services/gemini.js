@@ -105,6 +105,52 @@ Rules:
   return JSON.parse(clean);
 }
 
+// Analyze a meal photo and identify all visible food items with estimated portions.
+// imageBase64: base64-encoded image string (no data-URI prefix).
+// mimeType: e.g. 'image/jpeg' or 'image/png'
+// Returns { items: [{ name, quantity, unit }] } — same shape as decomposeMeal.
+async function analyzeMealPhoto(imageBase64, mimeType = 'image/jpeg', key) {
+  const prompt = `You are a nutrition assistant. The image shows a meal or plate of food. Identify all visible food items and estimate realistic portion sizes.
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "items": [
+    { "name": "chicken breast grilled", "quantity": 150, "unit": "g" },
+    { "name": "rice white cooked", "quantity": 200, "unit": "g" }
+  ]
+}
+
+Rules:
+- Use generic food names (not brand names)
+- Estimate realistic portions based on visual size
+- unit must be one of: g, ml, cup, tbsp, tsp, piece, slice
+- Return ONLY the JSON object, no markdown, no explanation`;
+
+  const res = await fetch(`${GEMINI_URL}?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inlineData: { mimeType, data: imageBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini API error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(clean);
+}
+
 // Extract nutrition facts from a label photo.
 // imageBase64: base64-encoded JPEG/PNG string (no data-URI prefix).
 // Returns { name, calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg, sugar_g, serving_size_g, serving_size_display, confidence_score }
@@ -161,5 +207,6 @@ export default {
   decomposeMeal,
   analyzeFood,
   analyzeLabel,
+  analyzeMealPhoto,
   isAvailable: () => false, // checked via key presence in context, not here
 };

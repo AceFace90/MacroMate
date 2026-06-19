@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Alert, TextInput,
+  ActivityIndicator, Alert, TextInput, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
@@ -94,6 +94,9 @@ export default function FoodSearchScreen({ navigation }) {
   const [aiItems, setAiItems] = useState([]); // [{ name, quantity, unit, resolved?, loading? }]
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Photo meal (web hidden file input ref)
+  const photoInputRef = useRef(null);
+
   // ── DB search ───────────────────────────────────────────────────────────────
 
   const search = useCallback((text) => {
@@ -169,6 +172,97 @@ export default function FoodSearchScreen({ navigation }) {
       await addEntry(todayStr(), item.resolved);
     }
     navigation.goBack();
+  };
+
+  // ── AI photo meal ───────────────────────────────────────────────────────────
+
+  const resolveAIItems = async (items) => {
+    const seeded = items.map(i => ({ ...i, loading: true, resolved: null }));
+    setAiItems(seeded);
+    setAiLoading(false);
+
+    const resolved = await Promise.all(
+      items.map(async (item, idx) => {
+        const q = `${item.quantity}${item.unit} ${item.name}`;
+        try {
+          const match = await foodMatching.matchFood(q);
+          const r = match ? { ...match } : null;
+          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved: r } : p));
+          return { ...item, resolved: r };
+        } catch {
+          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved: null } : p));
+          return { ...item, resolved: null };
+        }
+      })
+    );
+    setAiItems(resolved);
+  };
+
+  const handlePhotoMeal = async () => {
+    if (!hasKey) {
+      Alert.alert('Gemini key needed', 'Add your API key in Profile → AI Settings.');
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      // Trigger the hidden file input
+      photoInputRef.current?.click();
+      return;
+    }
+
+    // Native: use expo-image-picker
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Camera permission is required to take a photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        base64: true,
+        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const base64 = asset.base64;
+      const mimeType = asset.mimeType || 'image/jpeg';
+      setAiLoading(true);
+      setAiItems([]);
+      const { items } = await gemini.analyzeMealPhoto(base64, mimeType, geminiKey);
+      await resolveAIItems(items);
+    } catch (e) {
+      setAiLoading(false);
+      Alert.alert('AI error', e.message);
+    }
+  };
+
+  const handlePhotoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAiLoading(true);
+    setAiItems([]);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Strip the data-URI prefix (e.g. "data:image/jpeg;base64,")
+          const dataUrl = reader.result;
+          const b64 = dataUrl.split(',')[1];
+          resolve(b64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const mimeType = file.type || 'image/jpeg';
+      const { items } = await gemini.analyzeMealPhoto(base64, mimeType, geminiKey);
+      await resolveAIItems(items);
+    } catch (e) {
+      setAiLoading(false);
+      Alert.alert('AI error', e.message);
+    }
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = '';
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -277,6 +371,25 @@ export default function FoodSearchScreen({ navigation }) {
                 : <Text style={[styles.aiBtnText, { color: hasKey ? '#000' : theme.textMuted }]}>Analyse meal</Text>
               }
             </TouchableOpacity>
+            {hasKey && (
+              <TouchableOpacity
+                style={[styles.aiBtn, styles.aiBtnOutlined, { backgroundColor: theme.card, borderColor: theme.accent }]}
+                onPress={handlePhotoMeal}
+                disabled={aiLoading}
+              >
+                <Text style={[styles.aiBtnText, { color: aiLoading ? theme.textMuted : theme.accent }]}>📷 Photo Meal</Text>
+              </TouchableOpacity>
+            )}
+            {Platform.OS === 'web' && (
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={handlePhotoFileChange}
+              />
+            )}
 
             {aiItems.length > 0 && (
               <>
@@ -345,6 +458,7 @@ const styles = StyleSheet.create({
   sep: { height: 1, marginHorizontal: spacing[1] },
   hint: { textAlign: 'center', marginTop: spacing[8], fontSize: typography.sizes.sm },
   aiBtn: { borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center' },
+  aiBtnOutlined: { borderWidth: 1.5, marginTop: spacing[2] },
   aiBtnText: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold },
   aiItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], gap: spacing[3] },
   aiName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },

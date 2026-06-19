@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
@@ -6,8 +6,6 @@ import { spacing, typography, colors } from '../theme';
 import Card from '../components/Card';
 import ActivityRings from '../components/ActivityRings';
 import { useLog, todayStr, sumEntries } from '../store/logStore';
-import { signOut } from '../services/auth';
-
 export default function DashboardScreen({ navigation }) {
   const { theme } = useTheme();
   const { getEntries, removeEntry, targets } = useLog();
@@ -92,12 +90,6 @@ export default function DashboardScreen({ navigation }) {
           </Text>
         )}
 
-        <TouchableOpacity
-          onPress={() => signOut().catch((e) => Alert.alert('Error', e.message))}
-          style={styles.signOut}
-        >
-          <Text style={[styles.signOutText, { color: theme.textMuted }]}>Sign out</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -125,6 +117,4 @@ const styles = StyleSheet.create({
   entrySub: { fontSize: typography.sizes.xs, marginTop: 2 },
   entryCal: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold },
   empty: { textAlign: 'center', marginTop: spacing[8], fontSize: typography.sizes.base },
-  signOut: { marginTop: spacing[10], alignItems: 'center' },
-  signOutText: { fontSize: typography.sizes.sm },
 });

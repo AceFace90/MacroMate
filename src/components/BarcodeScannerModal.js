@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform,
+  View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
@@ -17,11 +17,44 @@ if (Platform.OS !== 'web') {
   useCameraPermissions = Camera.useCameraPermissions;
 }
 
+function ManualBarcodeForm({ onDetected, theme }) {
+  const [barcodeInput, setBarcodeInput] = useState('');
+  return (
+    <View style={styles.manualForm}>
+      <Text style={[styles.manualHeading, { color: theme.text }]}>Enter Barcode Manually</Text>
+      <TextInput
+        style={[styles.manualInput, { backgroundColor: theme.input, color: theme.text, borderColor: theme.border }]}
+        value={barcodeInput}
+        onChangeText={setBarcodeInput}
+        keyboardType="numeric"
+        maxLength={14}
+        placeholder="0 12345 67890 5"
+        placeholderTextColor={theme.textMuted}
+        returnKeyType="done"
+        onSubmitEditing={() => { if (barcodeInput.trim()) onDetected(barcodeInput.trim()); }}
+      />
+      <TouchableOpacity
+        style={[styles.lookupBtn, { backgroundColor: theme.accent, opacity: barcodeInput.trim() ? 1 : 0.4 }]}
+        onPress={() => { if (barcodeInput.trim()) onDetected(barcodeInput.trim()); }}
+        disabled={!barcodeInput.trim()}
+      >
+        <Text style={styles.lookupBtnText}>Look Up</Text>
+      </TouchableOpacity>
+      <Text style={[styles.manualNote, { color: theme.textMuted }]}>
+        You can also try Chrome on Android for live scanning
+      </Text>
+    </View>
+  );
+}
+
 function WebBarcodeScanner({ onDetected, onError }) {
+  const { theme } = useTheme();
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
-  const [status, setStatus] = useState('starting'); // starting | scanning | unsupported
+  const [status, setStatus] = useState('starting'); // starting | scanning | unsupported | cameraError
+  const [cameraError, setCameraError] = useState('');
+  const [showManual, setShowManual] = useState(false);
 
   useEffect(() => {
     if (typeof BarcodeDetector === 'undefined') {
@@ -55,7 +88,10 @@ function WebBarcodeScanner({ onDetected, onError }) {
         }
       })
       .catch(err => {
-        if (active) onError(err.message || 'Camera access denied');
+        if (active) {
+          setCameraError(err.message || 'Camera access denied');
+          setStatus('cameraError');
+        }
       });
 
     return () => {
@@ -66,10 +102,22 @@ function WebBarcodeScanner({ onDetected, onError }) {
   }, []);
 
   if (status === 'unsupported') {
+    return <ManualBarcodeForm onDetected={onDetected} theme={theme} />;
+  }
+
+  if (status === 'cameraError' || showManual) {
     return (
-      <Text style={styles.hint}>
-        Barcode scanning is not supported in this browser. Try Chrome on Android or Safari 17+.
-      </Text>
+      <View style={styles.centered}>
+        {status === 'cameraError' && !showManual && (
+          <>
+            <Text style={[styles.errorText, { color: theme.text }]}>{cameraError}</Text>
+            <TouchableOpacity onPress={() => setShowManual(true)}>
+              <Text style={[styles.manualLink, { color: theme.accent }]}>Enter barcode manually</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {showManual && <ManualBarcodeForm onDetected={onDetected} theme={theme} />}
+      </View>
     );
   }
 
@@ -239,4 +287,15 @@ const styles = StyleSheet.create({
   retryBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
   permBtn: { borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center' },
   permBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
+  manualForm: { width: '100%', alignItems: 'center', gap: spacing[4] },
+  manualHeading: { fontSize: typography.sizes.lg, fontWeight: '700', textAlign: 'center' },
+  manualInput: {
+    width: '100%', borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    fontSize: typography.sizes.base, textAlign: 'center', letterSpacing: 2,
+  },
+  lookupBtn: { borderRadius: 10, paddingVertical: spacing[3], paddingHorizontal: spacing[8], alignItems: 'center' },
+  lookupBtnText: { fontSize: typography.sizes.base, fontWeight: '700', color: '#000' },
+  manualNote: { fontSize: typography.sizes.xs, textAlign: 'center' },
+  manualLink: { fontSize: typography.sizes.sm, fontWeight: '600', textDecorationLine: 'underline' },
 });
