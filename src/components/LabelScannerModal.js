@@ -218,7 +218,7 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
               <Text style={[styles.resultName, { color: theme.text }]}>{result.name}</Text>
               {result.serving_size_display && (
                 <Text style={[styles.serving, { color: theme.textMuted }]}>
-                  Per serving: {result.serving_size_display}
+                  {`Per serving: ${result.serving_size_display}`}
                 </Text>
               )}
               <View style={[styles.macroGrid, { borderColor: theme.border }]}>
@@ -231,14 +231,14 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
                   ['Sodium', result.sodium_mg, 'mg'],
                 ].map(([label, val, unit]) => (
                   <View key={label} style={[styles.macroCell, { borderColor: theme.border }]}>
-                    <Text style={[styles.macroVal, { color: theme.text }]}>{val ?? 0}{unit}</Text>
+                    <Text style={[styles.macroVal, { color: theme.text }]}>{`${val ?? 0}${unit}`}</Text>
                     <Text style={[styles.macroLabel, { color: theme.textMuted }]}>{label}</Text>
                   </View>
                 ))}
               </View>
               {result.confidence_score < 70 && (
                 <Text style={[styles.confidence, { color: theme.textMuted }]}>
-                  ⚠ Low confidence ({result.confidence_score}%) — check values before logging.
+                  {`⚠ Low confidence (${result.confidence_score}%) — check values before logging.`}
                 </Text>
               )}
               <View style={styles.btnRow}>

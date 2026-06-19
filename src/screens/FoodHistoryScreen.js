@@ -77,7 +77,7 @@ function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
             {`${entry.calories} kcal`}
           </Text>
           <Text style={[styles.entryMacros, { color: theme.textMuted }]}>
-            P{entry.protein_g}  C{entry.carbs_g}  F{entry.fat_g}
+            {`P${entry.protein_g}  C${entry.carbs_g}  F${entry.fat_g}`}
           </Text>
         </View>
         <View style={styles.entryActions}>
