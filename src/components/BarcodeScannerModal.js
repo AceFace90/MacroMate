@@ -50,14 +50,18 @@ function WebBarcodeScanner({ onDetected, onError }) {
         if (!activeRef.current || !videoRef.current) return;
 
         setReady(true);
-        reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-          if (!activeRef.current) return;
-          if (result) {
-            activeRef.current = false;
-            onDetected(result.getText());
+        reader.decodeFromConstraints(
+          { video: { facingMode: 'environment' } },
+          videoRef.current,
+          (result, err) => {
+            if (!activeRef.current) return;
+            if (result) {
+              activeRef.current = false;
+              onDetected(result.getText());
+            }
+            // NotFoundException fires continuously when no barcode in frame — ignore
           }
-          // NotFoundException fires continuously when no barcode is in frame — ignore
-        });
+        );
       } catch (err) {
         if (activeRef.current) onError(err.message || 'Camera error');
       }
@@ -80,7 +84,6 @@ function WebBarcodeScanner({ onDetected, onError }) {
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
         playsInline
         muted
-        autoPlay
       />
       <View style={styles.scanOverlay} pointerEvents="none">
         <View style={styles.scanFrame} />
