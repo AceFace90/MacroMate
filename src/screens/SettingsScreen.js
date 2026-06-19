@@ -71,8 +71,6 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={[styles.title, { color: theme.accent }]}>Settings</Text>
-
         {/* APPEARANCE */}
         <Card style={styles.card}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>APPEARANCE</Text>
@@ -161,7 +159,6 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container:    { padding: spacing[5], paddingBottom: spacing[12] },
-  title:        { fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing[5] },
   card:         { gap: spacing[3], marginBottom: spacing[4] },
   sectionLabel: { fontSize: typography.sizes.xs, fontWeight: '600', letterSpacing: 0.8 },
   rowLabel:     { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },

@@ -95,7 +95,7 @@ function MetricTile({ value, label, sub, color }) {
   );
 }
 
-export default function ProfileScreen({ session, onTargetsChange, navigation }) {
+export default function ProfileScreen({ session, onTargetsChange }) {
   const { theme } = useTheme();
   const [form, setForm] = useState({
     name: '',
@@ -211,18 +211,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.profileHeader}>
-          <View>
-            <Text style={[styles.title, { color: theme.accent }]}>Profile</Text>
-            <Text style={[styles.email, { color: theme.textMuted }]}>{session?.user?.email}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Text style={[styles.gearIcon, { color: theme.accent }]}>⚙️</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.email, { color: theme.textMuted, marginBottom: spacing[4] }]}>{session?.user?.email}</Text>
 
         {/* ── Current Goals card ── */}
         {goalComputed && (
@@ -403,10 +392,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
 
 const styles = StyleSheet.create({
   container: { padding: spacing[5], paddingBottom: spacing[12] },
-  profileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing[5] },
-  title: { fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold },
-  email: { fontSize: typography.sizes.sm, marginTop: spacing[1] },
-  gearIcon: { fontSize: 26, marginTop: 4 },
+  email: { fontSize: typography.sizes.sm },
   card: { gap: spacing[3], marginBottom: spacing[4] },
   sectionLabel: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

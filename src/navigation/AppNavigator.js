@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -42,7 +43,21 @@ function ProfileStackNav({ session, onTargetsChange }) {
   const { theme } = useTheme();
   return (
     <ProfileStack.Navigator screenOptions={stackOptions(theme)}>
-      <ProfileStack.Screen name="ProfileMain" options={{ headerShown: false }}>
+      <ProfileStack.Screen
+        name="ProfileMain"
+        options={({ navigation }) => ({
+          title: 'Profile',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Settings')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ marginRight: spacing[4] }}
+            >
+              <Ionicons name="settings-outline" size={24} color={theme.accent} />
+            </TouchableOpacity>
+          ),
+        })}
+      >
         {(props) => <ProfileScreen {...props} session={session} onTargetsChange={onTargetsChange} />}
       </ProfileStack.Screen>
       <ProfileStack.Screen
