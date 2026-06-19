@@ -9,7 +9,6 @@ import Input from '../components/Input';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import { calculateBMR, calculateTDEE, calculateAge, calculateMacros, calculateMacrosFromProtein } from '../services/calculations';
-import { useGeminiKey } from '../hooks/useGeminiKey';
 import { getCountryOptions } from '../services/countryConfig';
 
 const ACTIVITY = [
@@ -98,8 +97,6 @@ function MetricTile({ value, label, sub, color }) {
 
 export default function ProfileScreen({ session, onTargetsChange, navigation }) {
   const { theme } = useTheme();
-  const { key: geminiKey, hasKey, saveKey } = useGeminiKey();
-  const [keyInput, setKeyInput] = useState('');
   const [form, setForm] = useState({
     name: '',
     weight_kg: '',
@@ -393,53 +390,6 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
           style={{ marginTop: spacing[2] }}
         />
 
-        {/* ── AI Settings card ── */}
-        <Card style={[styles.card, { marginTop: spacing[4] }]}>
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>AI SETTINGS</Text>
-          <Text style={[styles.aiNote, { color: theme.textSecondary }]}>
-            Paste your Gemini API key to enable AI meal logging. The key is stored only on this device — never synced to the cloud.
-          </Text>
-          {hasKey ? (
-            <View style={styles.row}>
-              <View style={[styles.keySet, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
-                <Text style={[styles.keySetText, { color: theme.accent }]}>✓ Gemini key saved</Text>
-              </View>
-              <Button title="Remove" variant="ghost" size="sm" onPress={() => saveKey('')} />
-            </View>
-          ) : (
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  label=""
-                  placeholder="AIza…"
-                  value={keyInput}
-                  onChangeText={setKeyInput}
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                />
-              </View>
-              <Button
-                title="Save"
-                size="sm"
-                onPress={() => { saveKey(keyInput); setKeyInput(''); }}
-                style={{ marginTop: spacing[1] }}
-              />
-            </View>
-          )}
-        </Card>
-
-        {/* ── Data Sources card ── */}
-        <Card style={[styles.card, { marginTop: spacing[5] }]}>
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>DATA SOURCES</Text>
-          <Text style={[styles.aiNote, { color: theme.textMuted }]}>
-            Food data sourced from the{' '}
-            <Text style={{ fontWeight: '600' }}>USDA FoodData Central</Text> (public domain),{' '}
-            <Text style={{ fontWeight: '600' }}>Open Food Facts</Text> (CC BY-SA 4.0),
-            and the <Text style={{ fontWeight: '600' }}>Australian AFCD</Text>.
-            Nutritional values are estimates and may not be accurate for all products.
-          </Text>
-        </Card>
-
         <Button
           title="Sign out"
           variant="ghost"
@@ -479,7 +429,4 @@ const styles = StyleSheet.create({
   tileLabel: { fontSize: typography.sizes.xs, marginTop: 2, textAlign: 'center' },
   tileSub: { fontSize: 10, marginTop: 2, textAlign: 'center' },
   macroLine: { fontSize: typography.sizes.sm, textAlign: 'center' },
-  aiNote: { fontSize: typography.sizes.sm, lineHeight: 18 },
-  keySet: { flex: 1, borderRadius: radius.md, borderWidth: 1, padding: spacing[3], justifyContent: 'center' },
-  keySetText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
 });
