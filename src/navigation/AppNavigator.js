@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -25,20 +25,6 @@ function stackOptions(theme) {
     contentStyle: { backgroundColor: theme.bg },
     headerTitleStyle: { color: theme.accent, fontWeight: '700' },
   };
-}
-
-function BackIcon({ color, size = 24 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 512 512" fill="none">
-      <Path
-        d="M328 112L184 256l144 144"
-        stroke={color}
-        strokeWidth={48}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
 }
 
 function GearIcon({ color, size = 24 }) {
@@ -101,7 +87,7 @@ function ProfileStackNav({ session, onTargetsChange }) {
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={{ marginLeft: spacing[2] }}
             >
-              <BackIcon color={theme.accent} size={24} />
+              <Text style={{ color: theme.accent, fontSize: 16, fontWeight: '600' }}>← Back</Text>
             </TouchableOpacity>
           ),
         })}
