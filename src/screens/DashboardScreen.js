@@ -62,16 +62,7 @@ export default function DashboardScreen({ navigation }) {
           <Card style={{ marginTop: spacing[4] }}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Meals logged</Text>
             {entries.map((entry) => (
-              <TouchableOpacity
-                key={entry.id}
-                style={styles.entryRow}
-                onLongPress={() =>
-                  Alert.alert('Remove?', entry.name, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => removeEntry(today, entry.id) },
-                  ])
-                }
-              >
+              <View key={entry.id} style={styles.entryRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.entryName, { color: theme.text }]}>{entry.name}</Text>
                   <Text style={[styles.entrySub, { color: theme.textMuted }]}>
@@ -79,7 +70,19 @@ export default function DashboardScreen({ navigation }) {
                   </Text>
                 </View>
                 <Text style={[styles.entryCal, { color: theme.textSecondary }]}>{entry.calories} kcal</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    Alert.alert('Remove?', entry.name, [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => removeEntry(today, entry.id) },
+                    ])
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.deleteBtn}
+                >
+                  <Text style={[styles.deleteBtnText, { color: theme.textMuted }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
             ))}
           </Card>
         )}
@@ -116,5 +119,7 @@ const styles = StyleSheet.create({
   entryName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
   entrySub: { fontSize: typography.sizes.xs, marginTop: 2 },
   entryCal: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold },
+  deleteBtn: { marginLeft: spacing[3], padding: spacing[1] },
+  deleteBtnText: { fontSize: typography.sizes.base, fontWeight: '600' },
   empty: { textAlign: 'center', marginTop: spacing[8], fontSize: typography.sizes.base },
 });
