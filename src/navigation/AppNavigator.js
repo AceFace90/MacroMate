@@ -27,6 +27,20 @@ function stackOptions(theme) {
   };
 }
 
+function BackIcon({ color, size = 24 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 512 512" fill="none">
+      <Path
+        d="M328 112L184 256l144 144"
+        stroke={color}
+        strokeWidth={48}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function GearIcon({ color, size = 24 }) {
   // Ionicons "settings-outline" path, viewBox 0 0 512 512
   return (
@@ -79,7 +93,18 @@ function ProfileStackNav({ session, onTargetsChange }) {
       <ProfileStack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ title: 'Settings' }}
+        options={({ navigation }) => ({
+          title: 'Settings',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ marginLeft: spacing[2] }}
+            >
+              <BackIcon color={theme.accent} size={24} />
+            </TouchableOpacity>
+          ),
+        })}
       />
     </ProfileStack.Navigator>
   );
