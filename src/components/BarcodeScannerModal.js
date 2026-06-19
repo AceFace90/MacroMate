@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, TextInput,
+  View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 import { getProductByBarcode } from '../services/openFoodFactsAPI';
 
-// Web fallback: use BarcodeDetector API where available, else show unsupported message.
-// Native: uses expo-camera CameraView with barcode scanning.
+// Web: ZXing works on all browsers including iPhone Safari — no BarcodeDetector needed.
+// Native: expo-camera CameraView with built-in barcode scanning.
 
 let CameraView, useCameraPermissions;
 if (Platform.OS !== 'web') {
@@ -17,119 +17,71 @@ if (Platform.OS !== 'web') {
   useCameraPermissions = Camera.useCameraPermissions;
 }
 
-function ManualBarcodeForm({ onDetected, theme }) {
-  const [barcodeInput, setBarcodeInput] = useState('');
-  return (
-    <View style={styles.manualForm}>
-      <Text style={[styles.manualHeading, { color: theme.text }]}>Enter Barcode Manually</Text>
-      <TextInput
-        style={[styles.manualInput, { backgroundColor: theme.input, color: theme.text, borderColor: theme.border }]}
-        value={barcodeInput}
-        onChangeText={setBarcodeInput}
-        keyboardType="numeric"
-        maxLength={14}
-        placeholder="0 12345 67890 5"
-        placeholderTextColor={theme.textMuted}
-        returnKeyType="done"
-        onSubmitEditing={() => { if (barcodeInput.trim()) onDetected(barcodeInput.trim()); }}
-      />
-      <TouchableOpacity
-        style={[styles.lookupBtn, { backgroundColor: theme.accent, opacity: barcodeInput.trim() ? 1 : 0.4 }]}
-        onPress={() => { if (barcodeInput.trim()) onDetected(barcodeInput.trim()); }}
-        disabled={!barcodeInput.trim()}
-      >
-        <Text style={styles.lookupBtnText}>Look Up</Text>
-      </TouchableOpacity>
-      <Text style={[styles.manualNote, { color: theme.textMuted }]}>
-        You can also try Chrome on Android for live scanning
-      </Text>
-    </View>
-  );
-}
-
 function WebBarcodeScanner({ onDetected, onError }) {
   const { theme } = useTheme();
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const rafRef = useRef(null);
-  const [status, setStatus] = useState('starting'); // starting | scanning | unsupported | cameraError
-  const [cameraError, setCameraError] = useState('');
-  const [showManual, setShowManual] = useState(false);
+  const readerRef = useRef(null);
+  const activeRef = useRef(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (typeof BarcodeDetector === 'undefined') {
-      setStatus('unsupported');
-      return;
-    }
-    let active = true;
-    const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] });
+    activeRef.current = true;
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-          setStatus('scanning');
-          const tick = async () => {
-            if (!active || !videoRef.current) return;
-            try {
-              const barcodes = await detector.detect(videoRef.current);
-              if (barcodes.length > 0) {
-                active = false;
-                onDetected(barcodes[0].rawValue);
-                return;
-              }
-            } catch (_) {}
-            rafRef.current = requestAnimationFrame(tick);
-          };
-          rafRef.current = requestAnimationFrame(tick);
+    (async () => {
+      try {
+        const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
+        if (!activeRef.current) return;
+
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+
+        const reader = new BrowserMultiFormatReader(hints);
+        readerRef.current = reader;
+
+        // Wait for video element to mount
+        let retries = 0;
+        while (!videoRef.current && retries++ < 20) {
+          await new Promise(r => setTimeout(r, 100));
         }
-      })
-      .catch(err => {
-        if (active) {
-          setCameraError(err.message || 'Camera access denied');
-          setStatus('cameraError');
-        }
-      });
+        if (!activeRef.current || !videoRef.current) return;
+
+        setReady(true);
+        reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
+          if (!activeRef.current) return;
+          if (result) {
+            activeRef.current = false;
+            onDetected(result.getText());
+          }
+          // NotFoundException fires continuously when no barcode is in frame — ignore
+        });
+      } catch (err) {
+        if (activeRef.current) onError(err.message || 'Camera error');
+      }
+    })();
 
     return () => {
-      active = false;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      activeRef.current = false;
+      if (readerRef.current) {
+        try { readerRef.current.reset(); } catch (_) {}
+      }
     };
   }, []);
 
-  if (status === 'unsupported') {
-    return <ManualBarcodeForm onDetected={onDetected} theme={theme} />;
-  }
-
-  if (status === 'cameraError' || showManual) {
-    return (
-      <View style={styles.centered}>
-        {status === 'cameraError' && !showManual && (
-          <>
-            <Text style={[styles.errorText, { color: theme.text }]}>{cameraError}</Text>
-            <TouchableOpacity onPress={() => setShowManual(true)}>
-              <Text style={[styles.manualLink, { color: theme.accent }]}>Enter barcode manually</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {showManual && <ManualBarcodeForm onDetected={onDetected} theme={theme} />}
-      </View>
-    );
-  }
-
   return (
     <View style={styles.webCameraContainer}>
-      {status === 'starting' && <ActivityIndicator style={StyleSheet.absoluteFill} size="large" />}
+      {!ready && <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color={theme.accent} />}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         ref={videoRef}
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
         playsInline
         muted
+        autoPlay
       />
       <View style={styles.scanOverlay} pointerEvents="none">
         <View style={styles.scanFrame} />
@@ -194,7 +146,6 @@ export default function BarcodeScannerModal({ visible, onClose, onFound }) {
         setStage('error');
         return;
       }
-      // Normalize to the shape FoodSearchScreen's logFood expects
       const item = {
         name: product.food_name || product.product_name || 'Unknown',
         calories: product.calories ?? 0,
@@ -220,7 +171,6 @@ export default function BarcodeScannerModal({ visible, onClose, onFound }) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={[styles.modal, { backgroundColor: theme.bg }]}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Scan Barcode</Text>
           <TouchableOpacity onPress={handleClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -287,15 +237,4 @@ const styles = StyleSheet.create({
   retryBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
   permBtn: { borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center' },
   permBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
-  manualForm: { width: '100%', alignItems: 'center', gap: spacing[4] },
-  manualHeading: { fontSize: typography.sizes.lg, fontWeight: '700', textAlign: 'center' },
-  manualInput: {
-    width: '100%', borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: typography.sizes.base, textAlign: 'center', letterSpacing: 2,
-  },
-  lookupBtn: { borderRadius: 10, paddingVertical: spacing[3], paddingHorizontal: spacing[8], alignItems: 'center' },
-  lookupBtnText: { fontSize: typography.sizes.base, fontWeight: '700', color: '#000' },
-  manualNote: { fontSize: typography.sizes.xs, textAlign: 'center' },
-  manualLink: { fontSize: typography.sizes.sm, fontWeight: '600', textDecorationLine: 'underline' },
 });
