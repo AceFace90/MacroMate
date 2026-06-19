@@ -308,18 +308,25 @@ export default function HomeScreen() {
   const resolveItems = async (items) => {
     const seeded = items.map(i => ({ ...i, loading: true, resolved: null, selected: true }));
     setAiItems(seeded);
-    setAiLoading(false);
     await Promise.all(
       items.map(async (item, idx) => {
         const q = `${item.quantity}${item.unit} ${item.name}`;
         try {
-          const match = await foodMatching.matchFood(q);
-          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved: match } : p));
+          // AI estimates nutrition directly — no DB matching needed
+          const result = await gemini.analyzeFood(q, null, '', geminiKey);
+          const resolved = result ? {
+            ...result,
+            name: result.name || item.name,
+            quantity_g: result.quantity_g || item.quantity,
+            source: 'ai',
+          } : null;
+          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved } : p));
         } catch {
           setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved: null } : p));
         }
       })
     );
+    setAiLoading(false);
   };
 
   const handleAIAnalyze = async (text) => {
@@ -469,70 +476,65 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Search panel */}
+        {/* Search / log panel */}
         <View style={styles.searchSection}>
 
-          {/* Input row */}
+          {/* Main text input — DB search + AI description, multiline */}
           <View style={[styles.searchBar, { backgroundColor: theme.input, borderColor: focused ? theme.accent : theme.border }]}>
             <TextInput
               value={query}
               onChangeText={handleChangeText}
               onFocus={() => setFocused(true)}
               onBlur={() => setTimeout(() => setFocused(false), 150)}
-              placeholder={`Search food for ${MEALS.find(m => m.key === selectedMeal)?.label}…`}
+              placeholder={`Type food name, or describe your meal…`}
               placeholderTextColor={theme.textMuted}
               style={[styles.searchInput, { color: theme.text }]}
               autoCorrect={false}
+              multiline
             />
-            {searching && <ActivityIndicator size="small" color={theme.accent} style={{ marginLeft: spacing[2] }} />}
-            {!searching && query.length >= 2 && hasKey && (
-              <TouchableOpacity
-                onPress={() => handleAIAnalyze(query)}
-                disabled={aiLoading}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.aiSparkleBtn}
-              >
-                <Text style={{ fontSize: 20 }}>✨</Text>
-              </TouchableOpacity>
-            )}
+            {searching && <ActivityIndicator size="small" color={theme.accent} style={{ marginLeft: spacing[2], alignSelf: 'flex-start', marginTop: 2 }} />}
           </View>
 
-          {/* Action buttons row */}
-          <View style={styles.actionBtnRow}>
+          {/* Utility buttons — Upload Image + Scan Barcode, left-aligned small */}
+          <View style={styles.utilBtnRow}>
             <TouchableOpacity
-              style={[styles.actionPill, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[styles.utilBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={handlePhotoMeal}
               disabled={aiLoading}
               activeOpacity={0.75}
             >
-              <Text style={[styles.actionPillText, { color: theme.text }]}>⬆ Image</Text>
+              <Text style={[styles.utilBtnText, { color: theme.text }]}>⬆  Upload Image</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionPill, { backgroundColor: theme.accent, borderColor: theme.accent }]}
+              style={[styles.utilBtn, { backgroundColor: '#1e3a5f', borderColor: '#2563eb' }]}
               onPress={() => setScannerVisible(true)}
               activeOpacity={0.75}
             >
-              <Text style={[styles.actionPillText, { color: '#000' }]}>▦ Barcode</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionPill, { backgroundColor: theme.card, borderColor: theme.accentBorder }]}
-              onPress={() => {
-                if (!hasKey) {
-                  Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Settings.');
-                  return;
-                }
-                if (query.trim().length >= 2) {
-                  handleAIAnalyze(query);
-                } else {
-                  Alert.alert('Describe your meal', 'Type what you ate in the search box, then tap ✨ AI to analyse it.');
-                }
-              }}
-              disabled={aiLoading}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.actionPillText, { color: theme.accent }]}>✨ AI</Text>
+              <Text style={[styles.utilBtnText, { color: '#60a5fa' }]}>▦  Scan Barcode</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Analyze & Log Food — big green button, always visible */}
+          <TouchableOpacity
+            style={[styles.analyzeBtn, { backgroundColor: query.trim() ? theme.accent : theme.border }]}
+            onPress={() => {
+              if (!query.trim()) return;
+              if (hasKey) {
+                handleAIAnalyze(query);
+              } else {
+                Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Settings to use AI analysis.');
+              }
+            }}
+            disabled={aiLoading || !query.trim()}
+            activeOpacity={0.85}
+          >
+            {aiLoading
+              ? <ActivityIndicator color="#000" />
+              : <Text style={[styles.analyzeBtnText, { color: query.trim() ? '#000' : theme.textMuted }]}>
+                  {hasKey ? '✨ Analyse & Log Food' : 'Analyse & Log Food'}
+                </Text>
+            }
+          </TouchableOpacity>
 
           {/* Quantity picker — shown after selecting a food */}
           {selectedFood && (
@@ -617,7 +619,6 @@ export default function HomeScreen() {
               ref={photoInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               style={{ display: 'none' }}
               onChange={handlePhotoFileChange}
             />
@@ -784,12 +785,17 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: typography.sizes.base },
   aiSparkleBtn: { marginLeft: spacing[2], padding: spacing[1] },
-  actionBtnRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[2] },
-  actionPill: {
-    flex: 1, borderWidth: 1, borderRadius: radius.full,
-    paddingVertical: spacing[3], alignItems: 'center',
+  utilBtnRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
+  utilBtn: {
+    borderWidth: 1, borderRadius: radius.lg,
+    paddingVertical: spacing[2], paddingHorizontal: spacing[3],
   },
-  actionPillText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold },
+  utilBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
+  analyzeBtn: {
+    borderRadius: radius.lg, paddingVertical: spacing[4],
+    alignItems: 'center', marginBottom: spacing[2],
+  },
+  analyzeBtnText: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold },
 
   resultsList: {
     borderRadius: radius.lg, borderWidth: 1,
