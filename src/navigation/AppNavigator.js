@@ -87,7 +87,7 @@ function ProfileStackNav({ session, onTargetsChange }) {
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={{ marginLeft: spacing[2] }}
             >
-              <Text style={{ color: theme.accent, fontSize: 16, fontWeight: '600' }}>← Back</Text>
+              <Text style={{ color: theme.accent, fontSize: 28, fontWeight: '400', marginTop: -2 }}>‹</Text>
             </TouchableOpacity>
           ),
         })}
