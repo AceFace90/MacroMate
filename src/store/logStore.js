@@ -12,6 +12,16 @@ export function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+export function getPreviousDays(n) {
+  const days = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  return days;
+}
+
 export function sumEntries(entries = []) {
   return entries.reduce(
     (acc, e) => ({
@@ -69,6 +79,7 @@ async function syncFromCloud(userId) {
       quantity_g: row.quantity_g,
       source: row.source,
       logged_at: row.logged_at,
+      meal_type: row.meal_type || 'BREAKFAST',
     });
   }
   return byDate;
@@ -87,6 +98,7 @@ async function upsertToCloud(userId, date, entry) {
     quantity_g: entry.quantity_g,
     source: entry.source,
     logged_at: entry.logged_at,
+    meal_type: entry.meal_type || 'BREAKFAST',
   });
   if (error) console.warn('[logStore] cloud upsert failed:', error.message);
 }
@@ -135,6 +147,7 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
       quantity_g: food.quantity_g || 100,
       source: food.source || 'manual',
       logged_at: new Date().toISOString(),
+      meal_type: food.meal_type || 'BREAKFAST',
     };
     setLogs(prev => {
       const next = { ...prev, [date]: [...(prev[date] || []), entry] };
@@ -154,10 +167,27 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
     if (userId) deleteFromCloud(id);
   };
 
+  const updateEntry = async (date, id, updates) => {
+    let updated;
+    setLogs(prev => {
+      const next = {
+        ...prev,
+        [date]: (prev[date] || []).map(e => {
+          if (e.id !== id) return e;
+          updated = { ...e, ...updates };
+          return updated;
+        }),
+      };
+      saveLocal(next);
+      return next;
+    });
+    if (userId && updated) upsertToCloud(userId, date, updated);
+  };
+
   const getEntries = (date) => logs[date] || [];
 
   return (
-    <LogContext.Provider value={{ logs, ready, targets, addEntry, removeEntry, getEntries }}>
+    <LogContext.Provider value={{ logs, ready, targets, addEntry, removeEntry, updateEntry, getEntries }}>
       {children}
     </LogContext.Provider>
   );
