@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, typography, radius, colors } from '../theme';
@@ -95,7 +95,7 @@ function MetricTile({ value, label, sub, color }) {
   );
 }
 
-export default function ProfileScreen({ session, onTargetsChange }) {
+export default function ProfileScreen({ session, onTargetsChange, navigation }) {
   const { theme } = useTheme();
   const [form, setForm] = useState({
     name: '',
@@ -116,17 +116,26 @@ export default function ProfileScreen({ session, onTargetsChange }) {
   useEffect(() => {
     if (!session?.user?.id) return;
     supabase.from('profiles').select('*').eq('id', session.user.id).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error && error.code !== 'PGRST116') {
+          // PGRST116 = no rows found (new user), anything else is a real error
+          console.warn('[ProfileScreen] load error:', error.message);
+        }
         if (data) {
           setForm(f => ({
             ...f,
-            ...data,
-            // Ensure new fields fall back to defaults if not yet persisted
-            country: data.country || 'AU',
-            goal_type: data.goal_type || 'WEIGHT_LOSS',
-            calorie_deficit: data.calorie_deficit ? String(data.calorie_deficit) : '500',
-            protein_per_kg: data.protein_per_kg ? String(data.protein_per_kg) : '2.0',
-            carbs_fat_split: data.carbs_fat_split || '50/50',
+            // Only override with non-null DB values so defaults survive a partial row
+            name: data.name ?? f.name,
+            weight_kg: data.weight_kg != null ? String(data.weight_kg) : f.weight_kg,
+            height_cm: data.height_cm != null ? String(data.height_cm) : f.height_cm,
+            dob: data.dob ?? f.dob,
+            gender: data.gender ?? f.gender,
+            activity_level: data.activity_level ?? f.activity_level,
+            country: data.country || f.country,
+            goal_type: data.goal_type || f.goal_type,
+            calorie_deficit: data.calorie_deficit ? String(data.calorie_deficit) : f.calorie_deficit,
+            protein_per_kg: data.protein_per_kg ? String(data.protein_per_kg) : f.protein_per_kg,
+            carbs_fat_split: data.carbs_fat_split || f.carbs_fat_split,
           }));
         }
       });
@@ -213,44 +222,47 @@ export default function ProfileScreen({ session, onTargetsChange }) {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={[styles.email, { color: theme.textMuted, marginBottom: spacing[4] }]}>{session?.user?.email}</Text>
 
-        {/* ── Current Goals card ── */}
+        {/* ── Current Goals card — shown once weight/height/DOB are filled ── */}
+        {!goalComputed && (
+          <Card style={[styles.card, styles.goalsCard]}>
+            <Text style={[styles.goalCardTitle, { color: theme.text }]}>Current Goals</Text>
+            <Text style={[styles.nudgeText, { color: theme.textMuted }]}>
+              Fill in Weight, Height, and Date of Birth below then tap Save Profile to see your calculated daily targets here.
+            </Text>
+          </Card>
+        )}
         {goalComputed && (
-          <Card style={styles.card}>
+          <Card style={[styles.card, styles.goalsCard]}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>CURRENT GOALS</Text>
-              <Text style={[styles.goalTypeLabel, { color: theme.accent }]}>{goalLabel}</Text>
+              <Text style={[styles.goalCardTitle, { color: theme.text }]}>Current Goals</Text>
+              <Text style={[styles.goalTypeLabel, { color: theme.accent }]}>📋 {goalLabel}</Text>
             </View>
 
-            {/* Big calorie number */}
-            <View style={styles.calorieRow}>
-              <Text style={[styles.calorieValue, { color: theme.accent }]}>
-                {goalComputed.adjustedCalories}
-              </Text>
-              <View style={styles.calorieSubs}>
-                <Text style={[styles.calorieUnit, { color: theme.textSecondary }]}>kcal/day</Text>
-                <Text style={[styles.proteinSub, { color: colors.protein }]}>
-                  {form.protein_per_kg}g/kg body weight protein
+            {/* Top row: Daily Calories + Protein Target */}
+            <View style={styles.goalTopRow}>
+              <View style={[styles.goalBigTile, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <Text style={[styles.goalBigTileLabel, { color: theme.textSecondary }]}>Daily Calories</Text>
+                <Text style={[styles.goalBigTileValue, { color: theme.accent }]}>
+                  {goalComputed.adjustedCalories}
+                </Text>
+                <Text style={[styles.goalBigTileSub, { color: theme.textMuted }]}>kcal/day</Text>
+              </View>
+              <View style={[styles.goalBigTile, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <Text style={[styles.goalBigTileLabel, { color: theme.textSecondary }]}>Protein Target</Text>
+                <Text style={[styles.goalBigTileValue, { color: colors.protein }]}>
+                  {goalComputed.macros.protein}g
+                </Text>
+                <Text style={[styles.goalBigTileSub, { color: theme.textMuted }]}>
+                  {form.protein_per_kg}g/kg body weight
                 </Text>
               </View>
             </View>
 
-            {/* Three macro tiles */}
+            {/* Bottom row: Protein / Carbs / Fat */}
             <View style={styles.tiles}>
-              <MetricTile
-                value={`${goalComputed.macros.protein}g`}
-                label="Protein"
-                color={colors.protein}
-              />
-              <MetricTile
-                value={`${goalComputed.macros.carbs}g`}
-                label="Carbs"
-                color={colors.carbs}
-              />
-              <MetricTile
-                value={`${goalComputed.macros.fat}g`}
-                label="Fat"
-                color={colors.fat}
-              />
+              <MetricTile value={`${goalComputed.macros.protein}g`} label="Protein" color={colors.protein} />
+              <MetricTile value={`${goalComputed.macros.carbs}g`}   label="Carbs"   color={colors.carbs} />
+              <MetricTile value={`${goalComputed.macros.fat}g`}     label="Fat"     color={colors.fat} />
             </View>
 
             <Text style={[styles.splitLine, { color: theme.textMuted }]}>
@@ -288,12 +300,34 @@ export default function ProfileScreen({ session, onTargetsChange }) {
               />
             </View>
           </View>
-          <Input
-            label="Date of birth (YYYY-MM-DD)"
-            placeholder="1990-01-15"
-            value={String(form.dob ?? '')}
-            onChangeText={set('dob')}
-          />
+          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Date of birth</Text>
+          {Platform.OS === 'web' ? (
+            <View style={[styles.datePickerWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+              <input
+                type="date"
+                value={form.dob || ''}
+                onChange={e => set('dob')(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'inherit',
+                  fontSize: 15,
+                  width: '100%',
+                  padding: 0,
+                  colorScheme: 'inherit',
+                }}
+              />
+            </View>
+          ) : (
+            <Input
+              label=""
+              placeholder="1990-01-15"
+              value={String(form.dob ?? '')}
+              onChangeText={set('dob')}
+            />
+          )}
 
           <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Biological Sex</Text>
           <PillRow options={SEX} value={form.gender} onSelect={set('gender')} />
@@ -380,6 +414,13 @@ export default function ProfileScreen({ session, onTargetsChange }) {
         />
 
         <Button
+          title="📋  Food History"
+          variant="ghost"
+          onPress={() => navigation.navigate('FoodHistory')}
+          style={{ marginTop: spacing[3] }}
+        />
+
+        <Button
           title="Sign out"
           variant="ghost"
           onPress={() => signOut().catch(e => Alert.alert('Error', e.message))}
@@ -394,16 +435,26 @@ const styles = StyleSheet.create({
   container: { padding: spacing[5], paddingBottom: spacing[12] },
   email: { fontSize: typography.sizes.sm },
   card: { gap: spacing[3], marginBottom: spacing[4] },
+  goalsCard: { borderColor: 'rgba(22,163,74,0.35)' },
   sectionLabel: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  goalCardTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold },
+  nudgeText: { fontSize: typography.sizes.sm, lineHeight: 20 },
   goalTypeLabel: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
-  calorieRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  calorieValue: { fontSize: 48, fontWeight: typography.weights.bold, lineHeight: 52 },
-  calorieSubs: { flex: 1, gap: spacing[1] },
-  calorieUnit: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
-  proteinSub: { fontSize: typography.sizes.sm },
+  goalTopRow: { flexDirection: 'row', gap: spacing[3] },
+  goalBigTile: {
+    flex: 1, borderWidth: 1, borderRadius: radius.md,
+    padding: spacing[4], gap: spacing[1],
+  },
+  goalBigTileLabel: { fontSize: typography.sizes.sm },
+  goalBigTileValue: { fontSize: 32, fontWeight: typography.weights.bold, lineHeight: 36 },
+  goalBigTileSub: { fontSize: typography.sizes.xs },
   splitLine: { fontSize: typography.sizes.xs, textAlign: 'center', marginTop: spacing[1] },
   row: { flexDirection: 'row', gap: spacing[3] },
+  datePickerWrap: {
+    borderWidth: 1, borderRadius: radius.md,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
+  },
   fieldLabel: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginTop: spacing[1] },
   helperText: { fontSize: typography.sizes.xs, lineHeight: 16, marginTop: -spacing[1] },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },

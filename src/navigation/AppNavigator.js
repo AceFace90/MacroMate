@@ -3,18 +3,17 @@ import { Text, TouchableOpacity } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator } from '@react-navigation/stack'; // still used by ProfileStack
 import { useTheme } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 
-import DashboardScreen from '../screens/DashboardScreen';
-import FoodSearchScreen from '../screens/FoodSearchScreen';
+import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ProgressScreen from '../screens/ProgressScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import FoodHistoryScreen from '../screens/FoodHistoryScreen';
 
 const Tab = createBottomTabNavigator();
-const HomeStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 function stackOptions(theme) {
@@ -43,17 +42,6 @@ function GearIcon({ color, size = 24 }) {
   );
 }
 
-function DashboardStack({ session }) {
-  const { theme } = useTheme();
-  return (
-    <HomeStack.Navigator screenOptions={stackOptions(theme)}>
-      <HomeStack.Screen name="Dashboard" options={{ headerShown: false }}>
-        {(props) => <DashboardScreen {...props} session={session} />}
-      </HomeStack.Screen>
-      <HomeStack.Screen name="FoodSearch" component={FoodSearchScreen} options={{ headerShown: false }} />
-    </HomeStack.Navigator>
-  );
-}
 
 function ProfileStackNav({ session, onTargetsChange }) {
   const { theme } = useTheme();
@@ -81,6 +69,22 @@ function ProfileStackNav({ session, onTargetsChange }) {
         component={SettingsScreen}
         options={({ navigation }) => ({
           title: 'Settings',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ marginLeft: spacing[2] }}
+            >
+              <Text style={{ color: theme.accent, fontSize: 28, fontWeight: '400', marginTop: -2 }}>‹</Text>
+            </TouchableOpacity>
+          ),
+        })}
+      />
+      <ProfileStack.Screen
+        name="FoodHistory"
+        component={FoodHistoryScreen}
+        options={({ navigation }) => ({
+          title: 'Food History',
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -127,9 +131,7 @@ export default function AppNavigator({ session, targets, onTargetsChange }) {
           ),
         })}
       >
-        <Tab.Screen name="Home">
-          {(props) => <DashboardStack {...props} session={session} />}
-        </Tab.Screen>
+        <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Progress" component={ProgressScreen} />
         <Tab.Screen name="Profile">
           {(props) => <ProfileStackNav {...props} session={session} onTargetsChange={onTargetsChange} />}

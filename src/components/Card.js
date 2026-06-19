@@ -4,7 +4,7 @@ import { useTheme } from '../hooks/useTheme';
 import { radius, spacing } from '../theme';
 
 // Ported from GymMate src/components/Card.js (shared design kit).
-export default function Card({ children, style, noPad }) {
+export default function Card({ children, style, noPad, accent }) {
   const { theme } = useTheme();
   return (
     <View
@@ -12,7 +12,7 @@ export default function Card({ children, style, noPad }) {
         styles.card,
         {
           backgroundColor: theme.card,
-          borderColor: theme.border,
+          borderColor: accent ? theme.accentBorder : theme.border,
         },
         !noPad && styles.pad,
         style,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, createContext } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTheme } from '../theme';
 
@@ -33,6 +33,12 @@ export function ThemeProvider({ children }) {
       : preference === 'dark';
 
   const theme = getTheme(resolvedDark);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.documentElement.style.colorScheme = resolvedDark ? 'dark' : 'light';
+    }
+  }, [resolvedDark]);
 
   const setTheme = async (pref) => {
     setPreference(pref);
