@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 import { getProductByBarcode } from '../services/openFoodFactsAPI';
+import { searchByBarcode as openNutritionByBarcode } from '../services/openNutritionSearch';
 
 // Web: ZXing works on all browsers including iPhone Safari — no BarcodeDetector needed.
 // Native: expo-camera CameraView with built-in barcode scanning.
@@ -140,12 +141,20 @@ export default function BarcodeScannerModal({ visible, onClose, onFound }) {
     scanningRef.current = true;
     setStage('loading');
     try {
-      const product = await getProductByBarcode(barcode);
+      // Tier 1: OpenNutrition local DB (best AU data, no network needed)
+      let product = await openNutritionByBarcode(barcode);
+
+      // Tier 2: Open Food Facts API
+      if (!product) {
+        product = await getProductByBarcode(barcode);
+      }
+
       if (!product) {
         setErrorMsg(`No product found for barcode ${barcode}`);
         setStage('error');
         return;
       }
+
       const item = {
         name: product.food_name || product.product_name || 'Unknown',
         calories: product.calories ?? 0,
