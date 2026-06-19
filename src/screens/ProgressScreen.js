@@ -103,7 +103,7 @@ export default function ProgressScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text style={[styles.header, { color: theme.accent }]}>Progress</Text>
+        <Text style={[styles.header, { color: theme.accent }]}>Progress 📈</Text>
 
         {/* Daily Targets card */}
         <Card style={styles.cardSpacing}>

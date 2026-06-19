@@ -164,10 +164,12 @@ export default function HomeScreen() {
   const [aiItems, setAiItems] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const photoInputRef = useRef(null);
+  // Staged photo (web: { base64, mimeType } | null)
+  const [stagedPhoto, setStagedPhoto] = useState(null);
 
   // Entry editing (full macro editor)
   const [editingId, setEditingId] = useState(null);
-  const [editFields, setEditFields] = useState({ qty: '', cal: '', protein: '', carbs: '', fat: '' });
+  const [editFields, setEditFields] = useState({ qty: '', cal: '', protein: '', carbs: '', fat: '', meal_type: 'BREAKFAST' });
 
   const [scannerVisible, setScannerVisible] = useState(false);
 
@@ -231,6 +233,7 @@ export default function HomeScreen() {
     setQuery(text);
     setSelectedFood(null);
     setAiItems([]);
+    if (text.trim()) setStagedPhoto(null);
     search(text);
   };
 
@@ -275,6 +278,7 @@ export default function HomeScreen() {
       protein: String(entry.protein_g ?? ''),
       carbs: String(entry.carbs_g ?? ''),
       fat: String(entry.fat_g ?? ''),
+      meal_type: entry.meal_type || 'BREAKFAST',
     });
   };
 
@@ -299,35 +303,12 @@ export default function HomeScreen() {
       carbs_g: Math.round((parseFloat(editFields.carbs) || 0) * 10) / 10,
       fat_g: Math.round((parseFloat(editFields.fat) || 0) * 10) / 10,
       quantity_g: parseFloat(editFields.qty) || entry.quantity_g || 100,
+      meal_type: editFields.meal_type,
     });
     setEditingId(null);
   };
 
   // ── AI ───────────────────────────────────────────────────────────────────────
-
-  const resolveItems = async (items) => {
-    const seeded = items.map(i => ({ ...i, loading: true, resolved: null, selected: true }));
-    setAiItems(seeded);
-    await Promise.all(
-      items.map(async (item, idx) => {
-        const q = `${item.quantity}${item.unit} ${item.name}`;
-        try {
-          // AI estimates nutrition directly — no DB matching needed
-          const result = await gemini.analyzeFood(q, null, '', geminiKey);
-          const resolved = result ? {
-            ...result,
-            name: result.name || item.name,
-            quantity_g: result.quantity_g || item.quantity,
-            source: 'ai',
-          } : null;
-          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved } : p));
-        } catch {
-          setAiItems(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, resolved: null } : p));
-        }
-      })
-    );
-    setAiLoading(false);
-  };
 
   const handleAIAnalyze = async (text) => {
     const input = (text || query).trim();
@@ -337,15 +318,18 @@ export default function HomeScreen() {
       return;
     }
     setAiLoading(true);
-    setAiItems([]);
+    setAiItems([{ name: input, quantity: 1, unit: 'serving', loading: true, resolved: null, selected: true }]);
     setResults([]);
     setQuery('');
     try {
-      const { items } = await gemini.decomposeMeal(input, geminiKey);
-      await resolveItems(items);
+      const result = await gemini.analyzeFood(input, null, '', geminiKey);
+      const resolved = result ? { ...result, name: result.name || input, source: 'ai' } : null;
+      setAiItems([{ name: input, quantity: 1, unit: 'serving', loading: false, resolved, selected: true }]);
     } catch (e) {
-      setAiLoading(false);
+      setAiItems([{ name: input, quantity: 1, unit: 'serving', loading: false, resolved: null, selected: true }]);
       Alert.alert('AI error', e.message);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -362,38 +346,28 @@ export default function HomeScreen() {
   };
 
   const handlePhotoMeal = async () => {
-    if (!hasKey) {
-      Alert.alert('Gemini key needed', 'Add your API key in Profile → AI Settings.');
-      return;
-    }
     if (Platform.OS === 'web') {
       photoInputRef.current?.click();
       return;
     }
     try {
       const ImagePicker = await import('expo-image-picker');
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Permission needed', 'Camera permission required.'); return; }
-      const result = await ImagePicker.launchCameraAsync({
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Permission needed', 'Photo library permission required.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({
         base64: true, quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images,
       });
       if (result.canceled || !result.assets?.[0]) return;
       const { base64, mimeType = 'image/jpeg' } = result.assets[0];
-      setAiLoading(true);
-      setAiItems([]);
-      const { items } = await gemini.analyzeMealPhoto(base64, mimeType, geminiKey);
-      await resolveItems(items);
+      setStagedPhoto({ base64, mimeType });
     } catch (e) {
-      setAiLoading(false);
-      Alert.alert('AI error', e.message);
+      Alert.alert('Error', e.message);
     }
   };
 
   const handlePhotoFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAiLoading(true);
-    setAiItems([]);
     try {
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -401,11 +375,9 @@ export default function HomeScreen() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const { items } = await gemini.analyzeMealPhoto(base64, file.type || 'image/jpeg', geminiKey);
-      await resolveItems(items);
+      setStagedPhoto({ base64, mimeType: file.type || 'image/jpeg', name: file.name });
     } catch (e) {
-      setAiLoading(false);
-      Alert.alert('AI error', e.message);
+      Alert.alert('Error reading file', e.message);
     }
     e.target.value = '';
   };
@@ -414,7 +386,6 @@ export default function HomeScreen() {
 
   const showRecent = focused && !query && !selectedFood && !aiItems.length && recentFoods.length > 0;
   const showResults = !selectedFood && results.length > 0;
-  const showAISuggest = query.length >= 3 && !searching && results.length === 0 && !selectedFood && !aiLoading && !aiItems.length;
   const selectedCount = aiItems.filter(i => i.resolved && i.selected).length;
 
   return (
@@ -514,27 +485,61 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Analyze & Log Food — big green button, always visible */}
-          <TouchableOpacity
-            style={[styles.analyzeBtn, { backgroundColor: query.trim() ? theme.accent : theme.border }]}
-            onPress={() => {
-              if (!query.trim()) return;
-              if (hasKey) {
-                handleAIAnalyze(query);
-              } else {
-                Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Settings to use AI analysis.');
-              }
-            }}
-            disabled={aiLoading || !query.trim()}
-            activeOpacity={0.85}
-          >
-            {aiLoading
-              ? <ActivityIndicator color="#000" />
-              : <Text style={[styles.analyzeBtnText, { color: query.trim() ? '#000' : theme.textMuted }]}>
-                  {hasKey ? '✨ Analyse & Log Food' : 'Analyse & Log Food'}
-                </Text>
-            }
-          </TouchableOpacity>
+          {/* Staged photo indicator */}
+          {stagedPhoto && (
+            <View style={[styles.stagedPhotoRow, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+              <Text style={[styles.stagedPhotoText, { color: theme.accent }]}>
+                📷 {stagedPhoto.name || 'Photo ready'}
+              </Text>
+              <TouchableOpacity onPress={() => setStagedPhoto(null)} hitSlop={HIT}>
+                <Text style={[styles.stagedPhotoRemove, { color: theme.textMuted }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Analyse & Log Food — big green button, active when text or photo is present */}
+          {(() => {
+            const canAnalyze = !aiLoading && (query.trim().length > 0 || !!stagedPhoto);
+            return (
+              <TouchableOpacity
+                style={[styles.analyzeBtn, { backgroundColor: canAnalyze ? theme.accent : theme.border }]}
+                onPress={async () => {
+                  if (!canAnalyze) return;
+                  if (!hasKey) {
+                    Alert.alert('Gemini key needed', 'Add your API key in Profile → AI Settings.');
+                    return;
+                  }
+                  if (stagedPhoto) {
+                    setAiLoading(true);
+                    setAiItems([{ name: 'Photo meal', quantity: 1, unit: 'serving', loading: true, resolved: null, selected: true }]);
+                    setQuery('');
+                    try {
+                      const result = await gemini.analyzeFood('meal from photo', stagedPhoto.base64, '', geminiKey);
+                      const resolved = result ? { ...result, name: result.name || 'Meal', source: 'ai' } : null;
+                      setStagedPhoto(null);
+                      setAiItems([{ name: result?.name || 'Meal', quantity: 1, unit: 'serving', loading: false, resolved, selected: true }]);
+                    } catch (e) {
+                      setAiItems([{ name: 'Photo meal', quantity: 1, unit: 'serving', loading: false, resolved: null, selected: true }]);
+                      Alert.alert('AI error', e.message);
+                    } finally {
+                      setAiLoading(false);
+                    }
+                  } else {
+                    handleAIAnalyze(query);
+                  }
+                }}
+                disabled={!canAnalyze}
+                activeOpacity={0.85}
+              >
+                {aiLoading
+                  ? <ActivityIndicator color="#000" />
+                  : <Text style={[styles.analyzeBtnText, { color: canAnalyze ? '#000' : theme.textMuted }]}>
+                      ✨ Analyse & Log Food
+                    </Text>
+                }
+              </TouchableOpacity>
+            );
+          })()}
 
           {/* Quantity picker — shown after selecting a food */}
           {selectedFood && (
@@ -573,17 +578,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* No results — AI suggestion */}
-          {showAISuggest && (
-            <TouchableOpacity
-              style={[styles.aiSuggest, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
-              onPress={() => handleAIAnalyze(query)}
-            >
-              <Text style={[styles.aiSuggestText, { color: theme.accent }]}>
-                ✨ No results — Analyze "{query}" with AI
-              </Text>
-            </TouchableOpacity>
-          )}
 
           {/* AI loading */}
           {aiLoading && (
@@ -695,6 +689,27 @@ export default function HomeScreen() {
                             <Text style={[styles.scaleBtnText, { color: theme.accent }]}>Scale</Text>
                           </TouchableOpacity>
                         </View>
+                        {/* Meal type picker */}
+                        <View style={styles.editMealRow}>
+                          {MEALS.map(m => {
+                            const active = editFields.meal_type === m.key;
+                            return (
+                              <TouchableOpacity
+                                key={m.key}
+                                onPress={() => setEditField('meal_type')(m.key)}
+                                style={[
+                                  styles.editMealPill,
+                                  { borderColor: active ? theme.accent : theme.border },
+                                  active && { backgroundColor: theme.accentBg },
+                                ]}
+                              >
+                                <Text style={[styles.editMealPillText, { color: active ? theme.accent : theme.textMuted }]}>
+                                  {m.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
                         {/* Macro fields */}
                         <View style={styles.editMacroRow}>
                           {[
@@ -791,6 +806,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2], paddingHorizontal: spacing[3],
   },
   utilBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
+  stagedPhotoRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: radius.lg, borderWidth: 1,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    marginBottom: spacing[2],
+  },
+  stagedPhotoText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, flex: 1 },
+  stagedPhotoRemove: { fontSize: typography.sizes.lg, paddingLeft: spacing[3] },
   analyzeBtn: {
     borderRadius: radius.lg, paddingVertical: spacing[4],
     alignItems: 'center', marginBottom: spacing[2],
@@ -831,12 +854,6 @@ const styles = StyleSheet.create({
   qtyLogBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.md },
   qtyLogBtnText: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: '#000' },
   qtyCancel: { fontSize: typography.sizes.lg, fontWeight: '600', paddingHorizontal: spacing[1] },
-
-  aiSuggest: {
-    borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed',
-    padding: spacing[4], alignItems: 'center', marginBottom: spacing[2],
-  },
-  aiSuggestText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
 
   aiLoadingRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
@@ -884,6 +901,9 @@ const styles = StyleSheet.create({
     padding: spacing[3], borderRadius: radius.md, gap: spacing[3],
   },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  editMealRow: { flexDirection: 'row', gap: spacing[2] },
+  editMealPill: { flex: 1, alignItems: 'center', paddingVertical: spacing[1], borderRadius: radius.md, borderWidth: 1 },
+  editMealPillText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.bold },
   editLabel: { fontSize: typography.sizes.sm, width: 48 },
   editInput: {
     width: 72, borderWidth: 1, borderRadius: radius.sm,

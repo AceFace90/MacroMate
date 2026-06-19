@@ -138,7 +138,7 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
 
   const addEntry = async (date, food) => {
     const entry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: crypto.randomUUID(),
       name: food.name,
       calories: Math.round(food.calories || 0),
       protein_g: Math.round((food.protein_g || 0) * 10) / 10,

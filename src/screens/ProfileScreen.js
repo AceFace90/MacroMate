@@ -206,7 +206,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
         protein_per_kg: parseFloat(form.protein_per_kg) || null,
         carbs_fat_split: form.carbs_fat_split,
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
       if (error) throw error;
       setSaved(true);
       onTargetsChange?.();
@@ -220,6 +220,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Text style={[styles.screenTitle, { color: theme.accent }]}>Profile 👤</Text>
         <Text style={[styles.email, { color: theme.textMuted, marginBottom: spacing[4] }]}>{session?.user?.email}</Text>
 
         {/* ── Current Goals card — shown once weight/height/DOB are filled ── */}
@@ -433,6 +434,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
 
 const styles = StyleSheet.create({
   container: { padding: spacing[5], paddingBottom: spacing[12] },
+  screenTitle: { fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold, marginBottom: spacing[2] },
   email: { fontSize: typography.sizes.sm },
   card: { gap: spacing[3], marginBottom: spacing[4] },
   goalsCard: { borderColor: 'rgba(22,163,74,0.35)' },
