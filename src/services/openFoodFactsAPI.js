@@ -288,43 +288,53 @@ export async function getProductByBarcode(barcode) {
       foodName = `${productName} by ${brand}`;
     }
 
-    // Extract nutrition data - prefer per serving if available
-    const hasServingData = servingSizeGrams && servingSizeGrams !== 100 && (
-      nutriments['energy-kcal_serving'] || 
-      nutriments['proteins_serving'] || 
-      nutriments['carbohydrates_serving']
-    );
-    
+    // Some AU products store data under _prepared/_prepared_100g/_prepared_serving keys
+    const kcal100g = nutriments['energy-kcal_100g'] || nutriments['energy-kcal_prepared_100g'] || 0;
+    const kcalServing = nutriments['energy-kcal_serving'] || nutriments['energy-kcal_prepared_serving'] ||
+                        (nutriments['energy_serving'] ? nutriments['energy_serving'] / 4.184 : 0) ||
+                        (nutriments['energy_prepared_serving'] ? nutriments['energy_prepared_serving'] / 4.184 : 0);
+    const prot100g  = nutriments['proteins_100g']       || nutriments['proteins_prepared_100g']       || 0;
+    const carb100g  = nutriments['carbohydrates_100g']  || nutriments['carbohydrates_prepared_100g']  || 0;
+    const fat100g_  = nutriments['fat_100g']            || nutriments['fat_prepared_100g']            || 0;
+    const fiber100g_= nutriments['fiber_100g']          || nutriments['fiber_prepared_100g']          || 0;
+    const sod100g   = nutriments['sodium_100g']         || nutriments['sodium_prepared_100g']         || 0;
+    const sug100g   = nutriments['sugars_100g']         || nutriments['sugars_prepared_100g']         || 0;
+
+    const protServ  = nutriments['proteins_serving']      || nutriments['proteins_prepared_serving']      || 0;
+    const carbServ  = nutriments['carbohydrates_serving'] || nutriments['carbohydrates_prepared_serving'] || 0;
+    const fatServ   = nutriments['fat_serving']           || nutriments['fat_prepared_serving']           || 0;
+    const fiberServ = nutriments['fiber_serving']         || nutriments['fiber_prepared_serving']         || 0;
+    const sodServ   = nutriments['sodium_serving']        || nutriments['sodium_prepared_serving']        || 0;
+    const sugServ   = nutriments['sugars_serving']        || nutriments['sugars_prepared_serving']        || 0;
+
+    const hasServingData = servingSizeGrams && servingSizeGrams !== 100 && (kcalServing || protServ || carbServ);
+
     let energyKcal, protein, carbs, fat, fiber, sodium, sugars;
-    
     if (hasServingData) {
-      // Use per-serving values (default for branded products)
-      energyKcal = nutriments['energy-kcal_serving'] || 
-                  (nutriments['energy_serving'] ? nutriments['energy_serving'] / 4.184 : 0);
-      protein = nutriments['proteins_serving'] || 0;
-      carbs = nutriments['carbohydrates_serving'] || 0;
-      fat = nutriments['fat_serving'] || 0;
-      fiber = nutriments['fiber_serving'] || 0;
-      sodium = nutriments['sodium_serving'] ? nutriments['sodium_serving'] * 1000 : 0;
-      sugars = nutriments['sugars_serving'] || 0;
+      energyKcal = kcalServing;
+      protein = protServ;
+      carbs = carbServ;
+      fat = fatServ;
+      fiber = fiberServ;
+      sodium = sodServ * 1000;
+      sugars = sugServ;
     } else {
-      // Fall back to per-100g values
-      energyKcal = nutriments['energy-kcal_100g'] || 0;
-      protein = nutriments['proteins_100g'] || 0;
-      carbs = nutriments['carbohydrates_100g'] || 0;
-      fat = nutriments['fat_100g'] || 0;
-      fiber = nutriments['fiber_100g'] || 0;
-      sodium = nutriments['sodium_100g'] ? nutriments['sodium_100g'] * 1000 : 0;
-      sugars = nutriments['sugars_100g'] || 0;
+      energyKcal = kcal100g;
+      protein = prot100g;
+      carbs = carb100g;
+      fat = fat100g_;
+      fiber = fiber100g_;
+      sodium = sod100g * 1000;
+      sugars = sug100g;
     }
-    
-    const energyKcal100g = nutriments['energy-kcal_100g'] || 0;
-    const protein100g = nutriments['proteins_100g'] || 0;
-    const carbs100g = nutriments['carbohydrates_100g'] || 0;
-    const fat100g = nutriments['fat_100g'] || 0;
-    const fiber100g = nutriments['fiber_100g'] || 0;
-    const sodium100g = nutriments['sodium_100g'] ? nutriments['sodium_100g'] * 1000 : 0;
-    const sugars100g = nutriments['sugars_100g'] || 0;
+
+    const energyKcal100g = kcal100g;
+    const protein100g = prot100g;
+    const carbs100g = carb100g;
+    const fat100g = fat100g_;
+    const fiber100g = fiber100g_;
+    const sodium100g = sod100g * 1000;
+    const sugars100g = sug100g;
 
     return {
       food_name: foodName,
