@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 import { getProductByBarcode } from '../services/openFoodFactsAPI';
 import { searchByBarcode as openNutritionByBarcode } from '../services/openNutritionSearch';
+import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
 
 // Web: ZXing works on all browsers including iPhone Safari — no BarcodeDetector needed.
 // Native: expo-camera CameraView with built-in barcode scanning.
@@ -30,9 +31,6 @@ function WebBarcodeScanner({ onDetected, onError }) {
 
     (async () => {
       try {
-        const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
-        if (!activeRef.current) return;
-
         const hints = new Map();
         hints.set(DecodeHintType.POSSIBLE_FORMATS, [
           BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
