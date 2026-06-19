@@ -643,14 +643,13 @@ export default function HomeScreen() {
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={[styles.entryName, { color: theme.text }]} numberOfLines={1}>{entry.name}</Text>
                         <Text style={[styles.entrySub, { color: theme.textMuted }]}>
-                          {new Date(entry.logged_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}
-                          {entry.quantity_g ? ` · ${entry.quantity_g}g` : ''}
+                          {`${new Date(entry.logged_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}${entry.quantity_g ? ` · ${entry.quantity_g}g` : ''}`}
                         </Text>
                       </View>
                       <View style={styles.entryMacros}>
                         <Text style={[styles.entryCal, { color: theme.text }]}>{entry.calories}</Text>
                         <Text style={[styles.entryMacroSub, { color: theme.textMuted }]}>
-                          {entry.protein_g}g P  {entry.carbs_g}g C  {entry.fat_g}g F
+                          {`${entry.protein_g}g P  ${entry.carbs_g}g C  ${entry.fat_g}g F`}
                         </Text>
                       </View>
                       <View style={styles.entryActions}>

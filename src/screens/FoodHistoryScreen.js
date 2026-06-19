@@ -74,7 +74,7 @@ function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
         </View>
         <View style={styles.entryRight}>
           <Text style={[styles.entryCal, { color: entry.calories > 0 ? theme.text : colors.carbs }]}>
-            {entry.calories} kcal
+            {`${entry.calories} kcal`}
           </Text>
           <Text style={[styles.entryMacros, { color: theme.textMuted }]}>
             P{entry.protein_g}  C{entry.carbs_g}  F{entry.fat_g}
@@ -185,7 +185,7 @@ export default function FoodHistoryScreen() {
               <View style={styles.dayHeader}>
                 <Text style={[styles.dayLabel, { color: theme.text }]}>{label}</Text>
                 <Text style={[styles.dayCals, { color: theme.accent }]}>
-                  {Math.round(totals.calories)} kcal · P{Math.round(totals.protein)}g C{Math.round(totals.carbs)}g F{Math.round(totals.fat)}g
+                  {`${Math.round(totals.calories)} kcal · P${Math.round(totals.protein)}g C${Math.round(totals.carbs)}g F${Math.round(totals.fat)}g`}
                 </Text>
               </View>
               {entries.map(entry => (

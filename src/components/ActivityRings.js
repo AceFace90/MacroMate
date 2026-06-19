@@ -59,9 +59,9 @@ export default function ActivityRings({ rings, size = 180, stroke = 14, gap = 6,
               <View>
                 <Text style={[styles.label, { color: theme.textMuted }]}>{r.label}</Text>
                 <Text style={[styles.value, { color: theme.text }]}>
-                  {r.value}{r.unit ? r.unit : 'g'}
+                  {`${r.value}${r.unit ?? 'g'}`}
                   <Text style={[styles.sub, { color: theme.textMuted }]}>
-                    {' '}/ {r.goal}{r.unit ? r.unit : 'g'} · {pct}%
+                    {` / ${r.goal}${r.unit ?? 'g'} · ${pct}%`}
                   </Text>
                 </Text>
               </View>

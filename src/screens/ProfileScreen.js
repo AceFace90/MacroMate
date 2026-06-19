@@ -381,10 +381,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
             onChangeText={set('protein_per_kg')}
           />
           <Text style={[styles.helperText, { color: theme.textMuted }]}>
-            Recommended: 1.6–2.2 g/kg for muscle building.
-            {form.weight_kg && form.protein_per_kg
-              ? ` Current target: ${Math.round(parseFloat(form.protein_per_kg) * parseFloat(form.weight_kg))}g protein/day`
-              : ''}
+            {`Recommended: 1.6–2.2 g/kg for muscle building.${form.weight_kg && form.protein_per_kg ? ` Current target: ${Math.round(parseFloat(form.protein_per_kg) * parseFloat(form.weight_kg))}g protein/day` : ''}`}
           </Text>
 
           <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Carbs / Fat Split</Text>
