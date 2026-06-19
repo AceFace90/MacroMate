@@ -251,10 +251,10 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
               <View style={[styles.goalBigTile, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                 <Text style={[styles.goalBigTileLabel, { color: theme.textSecondary }]}>Protein Target</Text>
                 <Text style={[styles.goalBigTileValue, { color: colors.protein }]}>
-                  {goalComputed.macros.protein}g
+                  {`${goalComputed.macros.protein}g`}
                 </Text>
                 <Text style={[styles.goalBigTileSub, { color: theme.textMuted }]}>
-                  {form.protein_per_kg}g/kg body weight
+                  {`${form.protein_per_kg}g/kg body weight`}
                 </Text>
               </View>
             </View>
@@ -267,7 +267,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
             </View>
 
             <Text style={[styles.splitLine, { color: theme.textMuted }]}>
-              Carbs/Fat Split: {form.carbs_fat_split}
+              {`Carbs/Fat Split: ${form.carbs_fat_split}`}
             </Text>
           </Card>
         )}
