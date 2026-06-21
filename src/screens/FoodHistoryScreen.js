@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
@@ -88,10 +88,16 @@ function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
             <Text style={[styles.actionBtnText, { color: theme.accent }]}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => Alert.alert('Delete?', entry.name, [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: () => onDelete(date, entry.id) },
-            ])}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                if (window.confirm(`Delete "${entry.name}"?`)) onDelete(date, entry.id);
+              } else {
+                Alert.alert('Delete?', entry.name, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => onDelete(date, entry.id) },
+                ]);
+              }
+            }}
             style={[styles.actionBtn, { borderColor: colors.red }]}
           >
             <Text style={[styles.actionBtnText, { color: colors.red }]}>✕</Text>
