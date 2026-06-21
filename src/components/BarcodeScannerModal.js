@@ -98,8 +98,8 @@ function NativeBarcodeScanner({ onDetected }) {
   const { theme } = useTheme();
 
   useEffect(() => {
-    if (!permission?.granted) requestPermission();
-  }, []);
+    if (permission?.status === 'undetermined') requestPermission();
+  }, [permission?.status]);
 
   if (!permission?.granted) {
     return (
