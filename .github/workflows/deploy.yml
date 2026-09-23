@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Run engine tests
+        run: npm test
+
       - name: Build web
         run: npx expo export --platform web
 
