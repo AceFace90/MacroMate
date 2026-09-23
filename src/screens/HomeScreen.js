@@ -6,14 +6,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, typography, colors, radius } from '../theme';
-import Card from '../components/Card';
-import ActivityRings from '../components/ActivityRings';
 import { useLog, todayStr, sumEntries, getPreviousDays } from '../store/logStore';
 import { useGeminiKey } from '../hooks/useGeminiKey';
 import foodMatching from '../services/foodMatching';
 import gemini from '../services/gemini';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import LabelScannerModal from '../components/LabelScannerModal';
+import { addDays, formatDateLabel } from '../utils/dateUtils';
+import { scaleFood } from '../utils/foodMath';
+import FoodResultRow from '../components/home/FoodResultRow';
+import QuantityPickerRow from '../components/home/QuantityPickerRow';
+import DayNavigator from '../components/home/DayNavigator';
+import MacroSummary from '../components/home/MacroSummary';
+import MealSection from '../components/home/MealSection';
+import AIMealPanel from '../components/home/AIMealPanel';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -25,116 +31,6 @@ const MEALS = [
 ];
 
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  // Use local date components — toISOString() converts to UTC and breaks timezone-east users
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function formatDateLabel(dateStr) {
-  const today = todayStr();
-  if (dateStr === today) return 'Today';
-  if (dateStr === addDays(today, -1)) return 'Yesterday';
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', {
-    weekday: 'short', day: 'numeric', month: 'short',
-  });
-}
-
-function scaleFood(food, newQty) {
-  const base = food.quantity_g || 100;
-  const scale = newQty / base;
-  return {
-    ...food,
-    calories: Math.round((food.calories || 0) * scale),
-    protein_g: Math.round((food.protein_g || 0) * scale * 10) / 10,
-    carbs_g: Math.round((food.carbs_g || 0) * scale * 10) / 10,
-    fat_g: Math.round((food.fat_g || 0) * scale * 10) / 10,
-    quantity_g: newQty,
-  };
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
-function FoodResultRow({ item, onSelect, theme }) {
-  const isAI = item.source === 'ai';
-  return (
-    <TouchableOpacity style={styles.resultRow} onPress={() => onSelect(item)} activeOpacity={0.7}>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.resultName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-        <Text style={[styles.resultMacros, { color: theme.textMuted }]}>
-          P {item.protein_g ?? 0}g · C {item.carbs_g ?? 0}g · F {item.fat_g ?? 0}g
-          {isAI ? <Text style={{ color: colors.fat }}> · AI estimate</Text> : null}
-        </Text>
-      </View>
-      <Text style={[styles.resultCal, { color: theme.text }]}>{item.calories ?? 0} kcal</Text>
-    </TouchableOpacity>
-  );
-}
-
-function QuantityPickerRow({ food, qty, onQtyChange, onLog, onCancel, theme }) {
-  const numQty = parseFloat(qty) || food.quantity_g || 100;
-  const scaled = scaleFood(food, numQty);
-  return (
-    <View style={[styles.qtyPicker, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
-      <Text style={[styles.qtyFoodName, { color: theme.text }]} numberOfLines={1}>{food.name}</Text>
-      <Text style={[styles.qtyMacros, { color: theme.textMuted }]}>
-        {scaled.calories} kcal · P {scaled.protein_g}g · C {scaled.carbs_g}g · F {scaled.fat_g}g
-      </Text>
-      <View style={styles.qtyControls}>
-        <TextInput
-          value={qty}
-          onChangeText={onQtyChange}
-          keyboardType="numeric"
-          selectTextOnFocus
-          style={[styles.qtyInput, { color: theme.text, borderColor: theme.accentBorder, backgroundColor: theme.input }]}
-        />
-        <Text style={[styles.qtyUnit, { color: theme.textMuted }]}>g</Text>
-        <TouchableOpacity onPress={onLog} style={[styles.qtyLogBtn, { backgroundColor: theme.accent }]}>
-          <Text style={styles.qtyLogBtnText}>Log</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onCancel} hitSlop={HIT}>
-          <Text style={[styles.qtyCancel, { color: theme.textMuted }]}>✕</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function AIItemRow({ item, onToggle, theme }) {
-  if (item.loading) {
-    return (
-      <View style={styles.aiItemRow}>
-        <ActivityIndicator size="small" color={theme.accent} />
-        <Text style={[styles.aiItemName, { color: theme.textMuted }]}>Looking up {item.name}…</Text>
-      </View>
-    );
-  }
-  if (!item.resolved) {
-    return (
-      <View style={styles.aiItemRow}>
-        <Text style={[styles.aiItemName, { color: theme.textMuted }]}>⚠ {item.name} — not found</Text>
-      </View>
-    );
-  }
-  return (
-    <TouchableOpacity style={styles.aiItemRow} onPress={onToggle} activeOpacity={0.7}>
-      <Text style={[styles.aiCheckbox, { color: item.selected ? theme.accent : theme.textMuted }]}>
-        {item.selected ? '☑' : '☐'}
-      </Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.aiItemName, { color: theme.text }]} numberOfLines={1}>{item.resolved.name}</Text>
-        <Text style={[styles.resultMacros, { color: theme.textMuted }]}>
-          {item.quantity}{item.unit} · P {item.resolved.protein_g ?? 0}g · C {item.resolved.carbs_g ?? 0}g · F {item.resolved.fat_g ?? 0}g
-        </Text>
-      </View>
-      <Text style={[styles.resultCal, { color: theme.text }]}>{item.resolved.calories ?? 0} kcal</Text>
-    </TouchableOpacity>
-  );
-}
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
@@ -445,32 +341,16 @@ export default function HomeScreen() {
         </View>
 
         {/* Day navigation */}
-        <View style={[styles.dayNav, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <TouchableOpacity onPress={() => setViewDate(d => addDays(d, -1))} style={styles.dayNavBtn}>
-            <Text style={[styles.dayNavArrow, { color: theme.text }]}>← Prev</Text>
-          </TouchableOpacity>
-          <Text style={[styles.dayNavLabel, { color: theme.text }]}>{formatDateLabel(viewDate)}</Text>
-          <TouchableOpacity
-            onPress={() => setViewDate(d => addDays(d, 1))}
-            style={[styles.dayNavBtn, styles.dayNavRight]}
-            disabled={isToday}
-          >
-            <Text style={[styles.dayNavArrow, { color: isToday ? theme.textMuted : theme.text }]}>Next →</Text>
-          </TouchableOpacity>
-        </View>
+        <DayNavigator
+          viewDate={viewDate}
+          isToday={isToday}
+          onPrev={() => setViewDate(d => addDays(d, -1))}
+          onNext={() => setViewDate(d => addDays(d, 1))}
+          theme={theme}
+        />
 
         {/* Macro rings */}
-        <Card accent style={styles.ringsCard}>
-          <ActivityRings
-            rings={rings}
-            size={180}
-            centerLabel={`${Math.round(totals.calories)}`}
-            centerSub={`/ ${targets.calories} kcal`}
-          />
-          <Text style={[styles.calLabel, { color: theme.textMuted }]}>
-            {calRemaining >= 0 ? `${calRemaining} kcal remaining` : `${Math.abs(calRemaining)} kcal over`}
-          </Text>
-        </Card>
+        <MacroSummary rings={rings} totals={totals} targets={targets} calRemaining={calRemaining} theme={theme} />
 
         {/* Meal type tabs */}
         <View style={styles.mealTabs}>
@@ -632,25 +512,13 @@ export default function HomeScreen() {
           )}
 
           {/* AI items */}
-          {aiItems.length > 0 && (
-            <View style={[styles.resultsList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.listHeader, { color: theme.textMuted }]}>AI Meal Analysis</Text>
-              {aiItems.map((item, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <View style={[styles.sep, { backgroundColor: theme.border }]} />}
-                  <AIItemRow item={item} onToggle={() => toggleAIItem(i)} theme={theme} />
-                </React.Fragment>
-              ))}
-              {selectedCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.logAllBtn, { backgroundColor: theme.accent }]}
-                  onPress={logAllAI}
-                >
-                  <Text style={styles.logAllBtnText}>Log {selectedCount} item{selectedCount !== 1 ? 's' : ''}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+          <AIMealPanel
+            items={aiItems}
+            selectedCount={selectedCount}
+            onToggle={toggleAIItem}
+            onLogAll={logAllAI}
+            theme={theme}
+          />
 
           {Platform.OS === 'web' && (
             <input
@@ -664,134 +532,24 @@ export default function HomeScreen() {
         </View>
 
         {/* Meal sections */}
-        {MEALS.map(meal => {
-          const mealEntries = grouped[meal.key] || [];
-          const mealCals = Math.round(sumEntries(mealEntries).calories);
-          return (
-            <Card accent key={meal.key} style={styles.mealSection}>
-              <View style={styles.mealSectionHeader}>
-                <Text style={[styles.mealSectionTitle, { color: theme.text }]}>
-                  {meal.emoji} {meal.key}
-                </Text>
-                <Text style={[styles.mealSectionCals, { color: mealCals > 0 ? theme.accent : theme.textMuted }]}>
-                  {mealCals} cal
-                </Text>
-              </View>
-
-              {mealEntries.length === 0 ? (
-                <Text style={[styles.mealEmpty, { color: theme.textMuted }]}>Nothing logged</Text>
-              ) : (
-                mealEntries.map(entry => (
-                  <View key={entry.id}>
-                    <View style={[styles.entryRow, { borderTopColor: theme.border }]}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.entryName, { color: theme.text }]} numberOfLines={1}>{entry.name}</Text>
-                        <Text style={[styles.entrySub, { color: theme.textMuted }]}>
-                          {`${new Date(entry.logged_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}${entry.quantity_g ? ` · ${entry.quantity_g}g` : ''}`}
-                        </Text>
-                      </View>
-                      <View style={styles.entryMacros}>
-                        <Text style={[styles.entryCal, { color: theme.text }]}>{entry.calories}</Text>
-                        <Text style={[styles.entryMacroSub, { color: theme.textMuted }]}>
-                          {`${entry.protein_g}g P  ${entry.carbs_g}g C  ${entry.fat_g}g F`}
-                        </Text>
-                      </View>
-                      <View style={styles.entryActions}>
-                        <TouchableOpacity
-                          onPress={() => editingId === entry.id ? setEditingId(null) : startEdit(entry)}
-                          style={[styles.actionBtn, { borderColor: theme.accent }]}
-                        >
-                          <Text style={[styles.actionBtnText, { color: theme.accent }]}>Edit</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => removeEntry(viewDate, entry.id)}
-                          style={[styles.actionBtn, { borderColor: colors.red }]}
-                        >
-                          <Text style={[styles.actionBtnText, { color: colors.red }]}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* Inline full-macro editor */}
-                    {editingId === entry.id && (
-                      <View style={[styles.editPanel, { borderTopColor: theme.border, backgroundColor: theme.input }]}>
-                        {/* Qty row with scale button */}
-                        <View style={styles.editRow}>
-                          <Text style={[styles.editLabel, { color: theme.textMuted }]}>Qty (g)</Text>
-                          <TextInput
-                            value={editFields.qty}
-                            onChangeText={setEditField('qty')}
-                            keyboardType="numeric"
-                            selectTextOnFocus
-                            style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.card }]}
-                          />
-                          <TouchableOpacity
-                            onPress={() => applyQtyScale(entry)}
-                            style={[styles.scaleBtn, { borderColor: theme.accent }]}
-                          >
-                            <Text style={[styles.scaleBtnText, { color: theme.accent }]}>Scale</Text>
-                          </TouchableOpacity>
-                        </View>
-                        {/* Meal type picker */}
-                        <View style={styles.editMealRow}>
-                          {MEALS.map(m => {
-                            const active = editFields.meal_type === m.key;
-                            return (
-                              <TouchableOpacity
-                                key={m.key}
-                                onPress={() => setEditField('meal_type')(m.key)}
-                                style={[
-                                  styles.editMealPill,
-                                  { borderColor: active ? theme.accent : theme.border },
-                                  active && { backgroundColor: theme.accentBg },
-                                ]}
-                              >
-                                <Text style={[styles.editMealPillText, { color: active ? theme.accent : theme.textMuted }]}>
-                                  {m.label}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                        {/* Macro fields */}
-                        <View style={styles.editMacroRow}>
-                          {[
-                            { key: 'cal', label: 'Cal' },
-                            { key: 'protein', label: 'P (g)', color: colors.protein },
-                            { key: 'carbs', label: 'C (g)', color: colors.carbs },
-                            { key: 'fat', label: 'F (g)', color: colors.fat },
-                          ].map(f => (
-                            <View key={f.key} style={styles.editMacroField}>
-                              <Text style={[styles.editMacroLabel, { color: f.color || theme.textMuted }]}>{f.label}</Text>
-                              <TextInput
-                                value={editFields[f.key]}
-                                onChangeText={setEditField(f.key)}
-                                keyboardType="numeric"
-                                selectTextOnFocus
-                                style={[styles.editMacroInput, { color: theme.text, borderColor: f.color || theme.border, backgroundColor: theme.card }]}
-                              />
-                            </View>
-                          ))}
-                        </View>
-                        <View style={styles.editActions}>
-                          <TouchableOpacity
-                            onPress={() => saveEdit(entry)}
-                            style={[styles.editSaveBtn, { backgroundColor: theme.accent }]}
-                          >
-                            <Text style={styles.editSaveBtnText}>Save</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => setEditingId(null)} hitSlop={HIT}>
-                            <Text style={[styles.editCancelText, { color: theme.textMuted }]}>Cancel</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                ))
-              )}
-            </Card>
-          );
-        })}
+        {MEALS.map(meal => (
+          <MealSection
+            key={meal.key}
+            meal={meal}
+            entries={grouped[meal.key] || []}
+            viewDate={viewDate}
+            editingId={editingId}
+            editFields={editFields}
+            meals={MEALS}
+            onStartEdit={startEdit}
+            onCancelEdit={() => setEditingId(null)}
+            onRemove={removeEntry}
+            onApplyQtyScale={applyQtyScale}
+            onSaveEdit={saveEdit}
+            onSetEditField={setEditField}
+            theme={theme}
+          />
+        ))}
 
       </ScrollView>
 
@@ -819,20 +577,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[3] },
   title: { fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold },
   headerDate: { fontSize: typography.sizes.sm },
-
-  dayNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: radius.lg, borderWidth: 1,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    marginBottom: spacing[4],
-  },
-  dayNavBtn: { minWidth: 70 },
-  dayNavRight: { alignItems: 'flex-end' },
-  dayNavArrow: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
-  dayNavLabel: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold },
-
-  ringsCard: { alignItems: 'center', gap: spacing[3], marginBottom: spacing[4] },
-  calLabel: { fontSize: typography.sizes.sm, textAlign: 'center' },
 
   mealTabs: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
   mealTab: {
@@ -879,99 +623,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[1],
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  resultRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing[3], paddingHorizontal: spacing[4],
-  },
-  resultName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
-  resultMacros: { fontSize: typography.sizes.xs, marginTop: 2 },
-  resultCal: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginLeft: spacing[3] },
   sep: { height: 1, marginHorizontal: spacing[4] },
-
-  qtyPicker: {
-    borderRadius: radius.lg, borderWidth: 1.5,
-    padding: spacing[3], marginBottom: spacing[2], gap: spacing[2],
-  },
-  qtyFoodName: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold },
-  qtyMacros: { fontSize: typography.sizes.xs },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  qtyInput: {
-    width: 64, borderWidth: 1, borderRadius: radius.sm,
-    paddingHorizontal: spacing[2], paddingVertical: spacing[1],
-    fontSize: typography.sizes.base, textAlign: 'center',
-  },
-  qtyUnit: { fontSize: typography.sizes.sm },
-  qtyLogBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.md },
-  qtyLogBtnText: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: '#000' },
-  qtyCancel: { fontSize: typography.sizes.lg, fontWeight: '600', paddingHorizontal: spacing[1] },
 
   aiLoadingRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
     padding: spacing[4], justifyContent: 'center',
   },
   aiLoadingText: { fontSize: typography.sizes.sm },
-
-  aiItemRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing[3], paddingHorizontal: spacing[4], gap: spacing[3],
-  },
-  aiCheckbox: { fontSize: 20 },
-  aiItemName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
-
-  logAllBtn: {
-    margin: spacing[3], borderRadius: radius.md,
-    paddingVertical: spacing[3], alignItems: 'center',
-  },
-  logAllBtnText: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: '#000' },
-
-  mealSection: { marginBottom: spacing[3] },
-  mealSectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: spacing[2],
-  },
-  mealSectionTitle: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold },
-  mealSectionCals: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold },
-  mealEmpty: { fontSize: typography.sizes.sm, fontStyle: 'italic' },
-
-  entryRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingTop: spacing[3], borderTopWidth: 1, gap: spacing[2],
-  },
-  entryName: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium },
-  entrySub: { fontSize: typography.sizes.xs, marginTop: 2 },
-  entryMacros: { alignItems: 'flex-end', minWidth: 72 },
-  entryCal: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold },
-  entryMacroSub: { fontSize: 10, marginTop: 1 },
-  entryActions: { flexDirection: 'row', gap: spacing[1] },
-  actionBtn: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[2], paddingVertical: 3 },
-  actionBtnText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
-
-  editPanel: {
-    borderTopWidth: 1, marginTop: spacing[2],
-    padding: spacing[3], borderRadius: radius.md, gap: spacing[3],
-  },
-  editRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  editMealRow: { flexDirection: 'row', gap: spacing[2] },
-  editMealPill: { flex: 1, alignItems: 'center', paddingVertical: spacing[1], borderRadius: radius.md, borderWidth: 1 },
-  editMealPillText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.bold },
-  editLabel: { fontSize: typography.sizes.sm, width: 48 },
-  editInput: {
-    width: 72, borderWidth: 1, borderRadius: radius.sm,
-    paddingHorizontal: spacing[2], paddingVertical: spacing[1],
-    fontSize: typography.sizes.sm, textAlign: 'center',
-  },
-  scaleBtn: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[1] },
-  scaleBtnText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
-  editMacroRow: { flexDirection: 'row', gap: spacing[2] },
-  editMacroField: { flex: 1, alignItems: 'center', gap: 3 },
-  editMacroLabel: { fontSize: 10, fontWeight: typography.weights.semibold },
-  editMacroInput: {
-    width: '100%', borderWidth: 1, borderRadius: radius.sm,
-    paddingHorizontal: spacing[1], paddingVertical: spacing[1],
-    fontSize: typography.sizes.sm, textAlign: 'center',
-  },
-  editActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  editSaveBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.sm },
-  editSaveBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#000' },
-  editCancelText: { fontSize: typography.sizes.sm },
 });
