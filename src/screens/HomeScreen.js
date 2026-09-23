@@ -385,6 +385,47 @@ export default function HomeScreen() {
     e.target.value = '';
   };
 
+  // Analyse a staged meal photo into MULTIPLE food items, then resolve each item's
+  // nutrition via the same estimator the text flow uses (analyzeMealPhoto only
+  // returns name + portion, not macros). Items that fail to resolve show as
+  // "not found" and stay unselected so they aren't logged.
+  const handlePhotoAnalyze = async () => {
+    if (!stagedPhoto) return;
+    if (!hasKey) {
+      Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features.');
+      return;
+    }
+    const photo = stagedPhoto;
+    setAiLoading(true);
+    setQuery('');
+    setStagedPhoto(null);
+    setAiItems([{ name: 'Photo meal', quantity: 1, unit: 'serving', loading: true, resolved: null, selected: true }]);
+    try {
+      const { items } = await gemini.analyzeMealPhoto(photo.base64, photo.mimeType || 'image/jpeg', geminiKey);
+      // Seed a row per detected item, each still resolving its nutrition.
+      setAiItems(items.map(it => ({
+        name: it.name, quantity: it.quantity, unit: it.unit, loading: true, resolved: null, selected: true,
+      })));
+      const resolved = await Promise.all(items.map(async (it) => {
+        try {
+          const r = await gemini.analyzeFood(`${it.quantity}${it.unit} ${it.name}`, null, '', geminiKey);
+          return {
+            name: it.name, quantity: it.quantity, unit: it.unit, loading: false, selected: true,
+            resolved: { ...r, name: r.name || it.name, source: 'ai' },
+          };
+        } catch {
+          return { name: it.name, quantity: it.quantity, unit: it.unit, loading: false, selected: false, resolved: null };
+        }
+      }));
+      setAiItems(resolved);
+    } catch (e) {
+      setAiItems([]);
+      Alert.alert('AI error', e.message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // ── Render helpers ────────────────────────────────────────────────────────────
 
   const showRecent = focused && !query && !selectedFood && !aiItems.length && recentFoods.length > 0;
@@ -526,20 +567,7 @@ export default function HomeScreen() {
                     return;
                   }
                   if (stagedPhoto) {
-                    setAiLoading(true);
-                    setAiItems([{ name: 'Photo meal', quantity: 1, unit: 'serving', loading: true, resolved: null, selected: true }]);
-                    setQuery('');
-                    try {
-                      const result = await gemini.analyzeFood('meal from photo', stagedPhoto.base64, '', geminiKey);
-                      const resolved = result ? { ...result, name: result.name || 'Meal', source: 'ai' } : null;
-                      setStagedPhoto(null);
-                      setAiItems([{ name: result?.name || 'Meal', quantity: 1, unit: 'serving', loading: false, resolved, selected: true }]);
-                    } catch (e) {
-                      setAiItems([{ name: 'Photo meal', quantity: 1, unit: 'serving', loading: false, resolved: null, selected: true }]);
-                      Alert.alert('AI error', e.message);
-                    } finally {
-                      setAiLoading(false);
-                    }
+                    handlePhotoAnalyze();
                   } else {
                     handleAIAnalyze(query);
                   }

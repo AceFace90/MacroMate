@@ -12,6 +12,15 @@ export function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Timestamp for a log entry on a given day. For today we use the real wall-clock
+// moment (so intra-day entries stay in logging order); for a back-dated entry we
+// anchor to local noon of that day so its time/recency doesn't read as "today".
+export function loggedAtFor(date) {
+  if (date === todayStr()) return new Date().toISOString();
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0).toISOString();
+}
+
 export function getPreviousDays(n) {
   const days = [];
   for (let i = 0; i < n; i++) {
@@ -49,13 +58,17 @@ async function saveLocal(logs) {
 
 // ── Supabase sync ─────────────────────────────────────────────────────────────
 
-// Fetch last 7 days of logs from Supabase and merge into local state.
+// How many days of history to pull from the cloud. Must be >= the longest range
+// the Progress screen can show (90) so trend views have data to render.
+const SYNC_DAYS = 90;
+
+// Fetch recent logs from Supabase and merge into local state.
 async function syncFromCloud(userId) {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  // Use LOCAL date components, not toISOString() (UTC), so the 7-day window
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - SYNC_DAYS);
+  // Use LOCAL date components, not toISOString() (UTC), so the window
   // boundary matches the local dates entries are logged under.
-  const since = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
+  const since = `${windowStart.getFullYear()}-${String(windowStart.getMonth() + 1).padStart(2, '0')}-${String(windowStart.getDate()).padStart(2, '0')}`;
 
   const { data, error } = await supabase
     .from('food_logs')
@@ -165,7 +178,7 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
       fat_g: Math.round((food.fat_g || 0) * 10) / 10,
       quantity_g: food.quantity_g || 100,
       source: food.source || 'manual',
-      logged_at: new Date().toISOString(),
+      logged_at: loggedAtFor(date),
       meal_type: food.meal_type || 'BREAKFAST',
     };
     localWrites.current.set(entry.id, entry);

@@ -1,32 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLog, sumEntries } from '../store/logStore';
 import { useTheme } from '../hooks/useTheme';
 import { colors, spacing, typography, radius } from '../theme';
 import Card from '../components/Card';
 
+const RANGES = [7, 30, 90];
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function getLast7Days() {
+// Ordered list of the last n days (oldest → today) with dd/mm labels.
+function getDays(n) {
   const days = [];
   const today = new Date();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-    let label;
-    if (i === 0) {
-      label = 'Today';
-    } else if (i === 1) {
-      label = 'Yesterday';
-    } else {
-      label = `${dd}/${mm}`;
-    }
-    days.push({ dateStr, label });
+    days.push({ dateStr: `${yyyy}-${mm}-${dd}`, label: `${dd}/${mm}` });
   }
   return days;
 }
@@ -88,12 +82,97 @@ function TargetTile({ label, value, unit, color }) {
   );
 }
 
+function RangeSelector({ range, onChange, theme }) {
+  return (
+    <View style={[styles.rangeSelector, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+      {RANGES.map((n) => {
+        const active = n === range;
+        return (
+          <TouchableOpacity
+            key={n}
+            style={[styles.rangeBtn, active && { backgroundColor: theme.accent }]}
+            onPress={() => onChange(n)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.rangeBtnText, { color: active ? '#000' : theme.textMuted }]}>
+              {n}d
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// Vertical daily-calorie trend: one thin bar per day, height ∝ calories. Scales
+// to long ranges where per-day rows wouldn't. Bars over the goal are tinted.
+function CalorieTrend({ perDay, goal, theme }) {
+  const maxCal = Math.max(goal, ...perDay.map((d) => d.totals.calories), 1);
+  const first = perDay[0]?.label;
+  const last = perDay[perDay.length - 1]?.label;
+  return (
+    <View>
+      <View style={styles.trendChart}>
+        {perDay.map((d) => {
+          const cal = d.totals.calories;
+          const pct = cal > 0 ? Math.max(cal / maxCal, 0.02) : 0;
+          const over = goal > 0 && cal > goal;
+          return (
+            <View key={d.dateStr} style={styles.trendCol}>
+              <View
+                style={{
+                  width: '100%',
+                  height: `${pct * 100}%`,
+                  borderRadius: radius.sm,
+                  backgroundColor: over ? colors.fat : theme.accent,
+                }}
+              />
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.trendAxis}>
+        <Text style={[styles.trendAxisLabel, { color: theme.textMuted }]}>{first}</Text>
+        <Text style={[styles.trendAxisLabel, { color: theme.textMuted }]}>{last}</Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
   const { theme } = useTheme();
   const { logs, targets } = useLog();
-  const days = getLast7Days();
+  const [range, setRange] = useState(7);
+
+  const { perDay, avg, loggedCount } = useMemo(() => {
+    const days = getDays(range);
+    const perDay = days.map((d) => ({ ...d, totals: sumEntries(logs[d.dateStr] || []) }));
+    const logged = perDay.filter((d) => d.totals.calories > 0);
+    const div = logged.length || 1;
+    const sum = perDay.reduce(
+      (a, d) => ({
+        calories: a.calories + d.totals.calories,
+        protein: a.protein + d.totals.protein,
+        carbs: a.carbs + d.totals.carbs,
+        fat: a.fat + d.totals.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return {
+      perDay,
+      loggedCount: logged.length,
+      avg: {
+        calories: Math.round(sum.calories / div),
+        protein: Math.round(sum.protein / div),
+        carbs: Math.round(sum.carbs / div),
+        fat: Math.round(sum.fat / div),
+      },
+    };
+  }, [logs, range]);
+
+  const pct = (val, goal) => (goal > 0 ? Math.round((val / goal) * 100) : 0);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]} edges={['top']}>
@@ -103,98 +182,62 @@ export default function ProgressScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text style={[styles.header, { color: theme.accent }]}>Progress 📈</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.header, { color: theme.accent }]}>Progress 📈</Text>
+          <RangeSelector range={range} onChange={setRange} theme={theme} />
+        </View>
 
         {/* Daily Targets card */}
         <Card style={styles.cardSpacing}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Daily Targets</Text>
           <View style={styles.tilesRow}>
-            <TargetTile
-              label="Calories"
-              value={targets.calories}
-              unit="kcal"
-              color={colors.calories}
-            />
-            <TargetTile
-              label="Protein"
-              value={targets.protein}
-              unit="g"
-              color={colors.protein}
-            />
-            <TargetTile
-              label="Carbs"
-              value={targets.carbs}
-              unit="g"
-              color={colors.carbs}
-            />
-            <TargetTile
-              label="Fat"
-              value={targets.fat}
-              unit="g"
-              color={colors.fat}
-            />
+            <TargetTile label="Calories" value={targets.calories} unit="kcal" color={colors.calories} />
+            <TargetTile label="Protein" value={targets.protein} unit="g" color={colors.protein} />
+            <TargetTile label="Carbs" value={targets.carbs} unit="g" color={colors.carbs} />
+            <TargetTile label="Fat" value={targets.fat} unit="g" color={colors.fat} />
           </View>
         </Card>
 
-        {/* Total Calories (Last 7 Days) card */}
+        {/* Daily calorie trend */}
         <Card style={styles.cardSpacing}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Total Calories (Last 7 Days)</Text>
-          {days.map(({ dateStr, label }) => {
-            const totals = sumEntries(logs[dateStr] || []);
-            const diff = totals.calories - targets.calories;
-            const diffStr =
-              diff === 0
-                ? ''
-                : diff < 0
-                ? ` (−${Math.abs(diff).toLocaleString()})`
-                : ` (+${diff.toLocaleString()})`;
-            return (
-              <View key={dateStr} style={styles.dayRow}>
-                <Text style={[styles.dayLabel, { color: theme.textMuted }]}>{label}</Text>
-                <View style={styles.barWrapper}>
-                  <ProgressBar
-                    value={totals.calories}
-                    goal={targets.calories}
-                    color={theme.accent}
-                    height={20}
-                  />
-                </View>
-                <Text style={[styles.calValue, { color: theme.text }]}>
-                  {totals.calories.toLocaleString()}
-                  <Text style={{ color: theme.textMuted, fontSize: typography.sizes.xs }}>
-                    {diffStr}
-                  </Text>
-                </Text>
-              </View>
-            );
-          })}
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Daily Calories · Last {range} Days</Text>
+          {loggedCount === 0 ? (
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>No meals logged in this range yet.</Text>
+          ) : (
+            <CalorieTrend perDay={perDay} goal={targets.calories} theme={theme} />
+          )}
         </Card>
 
-        {/* Macro Breakdown (Last 7 Days) card */}
+        {/* Averages vs target over the range */}
         <Card style={[styles.cardSpacing, styles.lastCard]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Macro Breakdown (Last 7 Days)</Text>
-          {days.map(({ dateStr, label }) => {
-            const t = sumEntries(logs[dateStr] || []);
-            const proteinPct =
-              targets.protein > 0 ? Math.round((t.protein / targets.protein) * 100) : 0;
-            const carbsPct =
-              targets.carbs > 0 ? Math.round((t.carbs / targets.carbs) * 100) : 0;
-            const fatPct =
-              targets.fat > 0 ? Math.round((t.fat / targets.fat) * 100) : 0;
-            return (
-              <View key={dateStr} style={styles.macroDayBlock}>
-                <Text style={[styles.dayLabel, { color: theme.textMuted, marginBottom: spacing[1] }]}>
-                  {label}
-                </Text>
-                <MacroBar value={t.protein} goal={targets.protein} color={colors.protein} />
-                <MacroBar value={t.carbs} goal={targets.carbs} color={colors.carbs} />
-                <MacroBar value={t.fat} goal={targets.fat} color={colors.fat} />
-                <Text style={[styles.macroSummary, { color: theme.textMuted }]}>
-                  {`Protein: ${Math.round(t.protein)}g (${proteinPct}%)  •  Carbs: ${Math.round(t.carbs)}g (${carbsPct}%)  •  Fat: ${Math.round(t.fat)}g (${fatPct}%)`}
-                </Text>
-              </View>
-            );
-          })}
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Daily Average · Last {range} Days</Text>
+          <Text style={[styles.avgSub, { color: theme.textMuted }]}>
+            {loggedCount > 0
+              ? `Averaged over ${loggedCount} logged day${loggedCount !== 1 ? 's' : ''}`
+              : 'No logged days in this range'}
+          </Text>
+
+          <View style={styles.avgRow}>
+            <Text style={[styles.dayLabel, { color: theme.textMuted }]}>Calories</Text>
+            <View style={styles.barWrapper}>
+              <ProgressBar value={avg.calories} goal={targets.calories} color={theme.accent} height={20} />
+            </View>
+            <Text style={[styles.calValue, { color: theme.text }]}>
+              {avg.calories.toLocaleString()}
+              <Text style={{ color: theme.textMuted, fontSize: typography.sizes.xs }}>
+                {` (${pct(avg.calories, targets.calories)}%)`}
+              </Text>
+            </Text>
+          </View>
+
+          <View style={styles.macroDayBlock}>
+            <MacroBar value={avg.protein} goal={targets.protein} color={colors.protein} />
+            <MacroBar value={avg.carbs} goal={targets.carbs} color={colors.carbs} />
+            <MacroBar value={avg.fat} goal={targets.fat} color={colors.fat} />
+            <Text style={[styles.macroSummary, { color: theme.textMuted }]}>
+              {`Protein: ${avg.protein}g (${pct(avg.protein, targets.protein)}%)  •  Carbs: ${avg.carbs}g (${pct(avg.carbs, targets.carbs)}%)  •  Fat: ${avg.fat}g (${pct(avg.fat, targets.fat)}%)`}
+            </Text>
+          </View>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -211,9 +254,67 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     paddingBottom: spacing[8],
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[4],
+  },
   header: {
     fontSize: typography.sizes['3xl'],
     fontWeight: typography.weights.bold,
+  },
+
+  // Range selector
+  rangeSelector: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 2,
+    gap: 2,
+  },
+  rangeBtn: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: radius.sm,
+  },
+  rangeBtnText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+  },
+
+  // Calorie trend chart
+  trendChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 120,
+    gap: 2,
+  },
+  trendCol: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  trendAxis: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing[2],
+  },
+  trendAxisLabel: {
+    fontSize: typography.sizes.xs,
+  },
+  emptyText: {
+    fontSize: typography.sizes.sm,
+    paddingVertical: spacing[3],
+  },
+  avgSub: {
+    fontSize: typography.sizes.xs,
+    marginTop: -spacing[2],
+    marginBottom: spacing[3],
+  },
+  avgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: spacing[4],
   },
   cardSpacing: {
