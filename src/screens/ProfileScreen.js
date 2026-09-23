@@ -8,7 +8,7 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
-import { calculateBMR, calculateTDEE, calculateAge, calculateMacros, calculateMacrosFromProtein } from '../services/calculations';
+import { calculateBMR, calculateTDEE, calculateAge, computeGoalTargets } from '../services/calculations';
 import { getCountryOptions } from '../services/countryConfig';
 
 const ACTIVITY = [
@@ -143,6 +143,17 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
 
   const set = (key) => (val) => { setSaved(false); setForm(f => ({ ...f, [key]: val })); };
 
+  // Goal type shares one calorie_deficit field between disjoint deficit/surplus
+  // value sets, so reset it to the new goal's default whenever the type changes.
+  const setGoalType = (val) => {
+    setSaved(false);
+    setForm(f => ({
+      ...f,
+      goal_type: val,
+      calorie_deficit: val === 'WEIGHT_LOSS' ? '500' : val === 'MUSCLE_GAIN' ? '200' : f.calorie_deficit,
+    }));
+  };
+
   // Computed baseline metrics (BMI, TDEE)
   const baseComputed = (() => {
     const age = calculateAge(form.dob);
@@ -155,28 +166,19 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
     return { tdee, bmi };
   })();
 
-  // Computed goal targets (adjusted calories + protein-first macros)
+  // Computed goal targets (adjusted calories + protein-first macros).
+  // Uses the shared computeGoalTargets so this card and the app-wide targets
+  // (rings/progress) always match.
   const goalComputed = (() => {
-    if (!baseComputed) return null;
-    const { tdee } = baseComputed;
+    const t = computeGoalTargets(form);
+    if (!t) return null;
     const weight = parseFloat(form.weight_kg);
     const proteinPerKg = parseFloat(form.protein_per_kg || '2.0');
     if (!weight || !proteinPerKg) return null;
-
-    let adjustment = 0;
-    if (form.goal_type === 'WEIGHT_LOSS') {
-      adjustment = -parseInt(form.calorie_deficit || '500', 10);
-    } else if (form.goal_type === 'MUSCLE_GAIN') {
-      adjustment = parseInt(form.calorie_deficit || '200', 10);
-    }
-    const adjustedCalories = tdee + adjustment;
-    const macros = calculateMacrosFromProtein(
-      proteinPerKg,
-      weight,
-      adjustedCalories,
-      form.carbs_fat_split || '50/50'
-    );
-    return { adjustedCalories, macros };
+    return {
+      adjustedCalories: t.calories,
+      macros: { protein: t.protein, carbs: t.carbs, fat: t.fat },
+    };
   })();
 
   // Label for goal type header (e.g. "Weight Loss (Calorie Deficit)")
@@ -350,7 +352,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>GOAL SETTINGS</Text>
 
           <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Goal Type</Text>
-          <PillRow options={GOAL_TYPES} value={form.goal_type} onSelect={set('goal_type')} />
+          <PillRow options={GOAL_TYPES} value={form.goal_type} onSelect={setGoalType} />
 
           {form.goal_type !== 'MAINTENANCE' && (
             <>

@@ -1,23 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
-import { calculateBMR, calculateTDEE, calculateAge, calculateMacros } from '../services/calculations';
+import { computeGoalTargets } from '../services/calculations';
 
 const DEFAULT_TARGETS = { calories: 2000, protein: 150, carbs: 200, fat: 67 };
 
-function computeTargets(profile) {
-  if (!profile) return null;
-  const age = calculateAge(profile.dob);
-  const bmr = calculateBMR(
-    parseFloat(profile.weight_kg),
-    parseFloat(profile.height_cm),
-    age,
-    profile.gender || 'MALE'
-  );
-  const tdee = calculateTDEE(bmr, profile.activity_level || 'MODERATE');
-  if (!tdee) return null;
-  const macros = calculateMacros(tdee);
-  return { calories: tdee, ...macros };
-}
+// Targets that drive the whole app (rings, progress) come from the same
+// goal-aware calculation as the Profile "Current Goals" card.
+const computeTargets = computeGoalTargets;
 
 export function useProfile(session) {
   const [profile, setProfile] = useState(null);

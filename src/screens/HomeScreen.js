@@ -287,13 +287,14 @@ export default function HomeScreen() {
   const applyQtyScale = (entry) => {
     const newQty = parseFloat(editFields.qty) || entry.quantity_g || 100;
     const scaled = scaleFood(entry, newQty);
-    setEditFields({
+    setEditFields(prev => ({
+      ...prev,
       qty: String(newQty),
       cal: String(scaled.calories),
       protein: String(scaled.protein_g),
       carbs: String(scaled.carbs_g),
       fat: String(scaled.fat_g),
-    });
+    }));
   };
 
   const saveEdit = async (entry) => {
@@ -303,7 +304,7 @@ export default function HomeScreen() {
       carbs_g: Math.round((parseFloat(editFields.carbs) || 0) * 10) / 10,
       fat_g: Math.round((parseFloat(editFields.fat) || 0) * 10) / 10,
       quantity_g: parseFloat(editFields.qty) || entry.quantity_g || 100,
-      meal_type: editFields.meal_type,
+      meal_type: editFields.meal_type || entry.meal_type || 'BREAKFAST',
     });
     setEditingId(null);
   };

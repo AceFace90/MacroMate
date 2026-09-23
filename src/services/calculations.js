@@ -141,10 +141,56 @@ function calculateMacrosFromProtein(proteinTargetPerKg, weightKg, targetCalories
   return { protein, carbs, fat };
 }
 
+/**
+ * Compute the user's daily calorie + macro targets from their saved profile,
+ * honouring goal type (deficit/surplus), protein-per-kg, and carbs/fat split.
+ *
+ * This is the SINGLE source of truth for targets. Both the app-wide targets
+ * (rings, progress bars via useProfile) and the Profile "Current Goals" card
+ * must call this so they can never diverge.
+ *
+ * @param {Object} profile - Row from the `profiles` table (or the ProfileScreen
+ *   form, which uses the same field names).
+ * @returns {Object|null} { calories, protein, carbs, fat, tdee } or null if
+ *   there isn't enough info (weight/height/dob) to compute a TDEE.
+ */
+function computeGoalTargets(profile) {
+  if (!profile) return null;
+
+  const age = calculateAge(profile.dob);
+  const weight = parseFloat(profile.weight_kg);
+  const bmr = calculateBMR(weight, parseFloat(profile.height_cm), age, profile.gender || 'MALE');
+  const tdee = calculateTDEE(bmr, profile.activity_level || 'MODERATE');
+  if (!tdee) return null;
+
+  const goalType = profile.goal_type || 'MAINTENANCE';
+  const proteinPerKg = parseFloat(profile.protein_per_kg) || 2.0;
+  const carbsFatSplit = profile.carbs_fat_split || '50/50';
+
+  // calorie_deficit holds the magnitude for BOTH deficit and surplus goals.
+  const magnitude = parseInt(profile.calorie_deficit, 10);
+  let adjustment = 0;
+  if (goalType === 'WEIGHT_LOSS') {
+    adjustment = -(Number.isFinite(magnitude) ? magnitude : 500);
+  } else if (goalType === 'MUSCLE_GAIN') {
+    adjustment = Number.isFinite(magnitude) ? magnitude : 200;
+  }
+  const calories = Math.max(0, tdee + adjustment);
+
+  // Prefer protein-first macros when body weight is known; otherwise fall back
+  // to the generic percentage split so we still return sensible macros.
+  const macros = (weight && proteinPerKg)
+    ? calculateMacrosFromProtein(proteinPerKg, weight, calories, carbsFatSplit)
+    : calculateMacros(calories);
+
+  return { calories, tdee, protein: macros.protein, carbs: macros.carbs, fat: macros.fat };
+}
+
 module.exports = {
   calculateBMR,
   calculateTDEE,
   calculateAge,
   calculateMacros,
-  calculateMacrosFromProtein
+  calculateMacrosFromProtein,
+  computeGoalTargets
 };

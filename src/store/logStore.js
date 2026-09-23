@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
@@ -53,7 +53,9 @@ async function saveLocal(logs) {
 async function syncFromCloud(userId) {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const since = sevenDaysAgo.toISOString().slice(0, 10);
+  // Use LOCAL date components, not toISOString() (UTC), so the 7-day window
+  // boundary matches the local dates entries are logged under.
+  const since = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
   const { data, error } = await supabase
     .from('food_logs')
@@ -117,6 +119,11 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
   const [ready, setReady] = useState(false);
   const userId = session?.user?.id;
 
+  // Track local mutations made this session so the initial cloud sync (which
+  // snapshots data from *before* those writes landed) can't clobber them.
+  const localWrites = useRef(new Map());   // id -> entry (adds + edits)
+  const pendingDeletes = useRef(new Set()); // ids removed locally
+
   useEffect(() => {
     (async () => {
       const local = await loadLocal();
@@ -125,9 +132,21 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
       if (userId) {
         const cloud = await syncFromCloud(userId);
         if (cloud) {
-          // Cloud wins for dates it has data for (cloud is source of truth)
+          // Cloud is source of truth for its dates, but reapply any local
+          // add/edit/delete made before this snapshot resolved so a fast
+          // user action isn't silently dropped or resurrected.
           setLogs(prev => {
-            const merged = { ...prev, ...cloud };
+            const merged = { ...prev };
+            for (const [date, cloudEntries] of Object.entries(cloud)) {
+              const cloudIds = new Set(cloudEntries.map(e => e.id));
+              const reconciled = cloudEntries
+                .filter(e => !pendingDeletes.current.has(e.id))
+                .map(e => localWrites.current.get(e.id) || e);
+              const localOnly = (prev[date] || []).filter(
+                e => !cloudIds.has(e.id) && !pendingDeletes.current.has(e.id)
+              );
+              merged[date] = [...reconciled, ...localOnly];
+            }
             saveLocal(merged);
             return merged;
           });
@@ -149,6 +168,8 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
       logged_at: new Date().toISOString(),
       meal_type: food.meal_type || 'BREAKFAST',
     };
+    localWrites.current.set(entry.id, entry);
+    pendingDeletes.current.delete(entry.id);
     setLogs(prev => {
       const next = { ...prev, [date]: [...(prev[date] || []), entry] };
       saveLocal(next);
@@ -159,6 +180,8 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
   };
 
   const removeEntry = async (date, id) => {
+    pendingDeletes.current.add(id);
+    localWrites.current.delete(id);
     setLogs(prev => {
       const next = { ...prev, [date]: (prev[date] || []).filter(e => e.id !== id) };
       saveLocal(next);
@@ -181,6 +204,7 @@ export function LogProvider({ children, session, targets = DEFAULT_TARGETS }) {
       saveLocal(next);
       return next;
     });
+    if (updated) localWrites.current.set(id, updated);
     if (userId && updated) upsertToCloud(userId, date, updated);
   };
 

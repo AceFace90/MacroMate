@@ -44,8 +44,45 @@ const UNIT_CONVERSIONS = {
   'servings': 100,
   'egg': 50,
   'eggs': 50,
-  'each': 100
+  'each': 100,
+
+  // Common household / vague measures (approximate weights)
+  'bowl': 250,
+  'bowls': 250,
+  'plate': 350,
+  'plates': 350,
+  'glass': 250,
+  'glasses': 250,
+  'can': 330,
+  'cans': 330,
+  'bottle': 500,
+  'bottles': 500,
+  'tub': 150,
+  'tubs': 150,
+  'packet': 100,
+  'packets': 100,
+  'pack': 100,
+  'packs': 100,
+  'handful': 30,
+  'handfuls': 30,
+  'scoop': 30,
+  'scoops': 30,
+  'bar': 50,
+  'bars': 50,
+  'stick': 15,
+  'sticks': 15,
+  'clove': 5,
+  'cloves': 5,
+  'pinch': 1,
+  'pinches': 1,
+  'dash': 1,
+  'dashes': 1
 };
+
+// Fallback weight (grams) for an unrecognized unit word — treat it like one
+// generic serving rather than one gram, so "2 bowls of pasta" doesn't collapse
+// to 2g of nutrition.
+const UNKNOWN_UNIT_GRAMS = 100;
 
 class QuantityExtractionService {
   /**
@@ -162,8 +199,8 @@ class QuantityExtractionService {
     const multiplier = UNIT_CONVERSIONS[normalizedUnit];
     
     if (!multiplier) {
-      console.warn(`Unknown unit: ${unit}, defaulting to grams`);
-      return quantity;
+      console.warn(`Unknown unit: ${unit}, treating as ~${UNKNOWN_UNIT_GRAMS}g per unit`);
+      return quantity * UNKNOWN_UNIT_GRAMS;
     }
     
     return quantity * multiplier;
