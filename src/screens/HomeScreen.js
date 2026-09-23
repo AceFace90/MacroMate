@@ -13,6 +13,7 @@ import { useGeminiKey } from '../hooks/useGeminiKey';
 import foodMatching from '../services/foodMatching';
 import gemini from '../services/gemini';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
+import LabelScannerModal from '../components/LabelScannerModal';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export default function HomeScreen() {
   const [editFields, setEditFields] = useState({ qty: '', cal: '', protein: '', carbs: '', fat: '', meal_type: 'BREAKFAST' });
 
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [labelScannerVisible, setLabelScannerVisible] = useState(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 
@@ -315,7 +317,7 @@ export default function HomeScreen() {
     const input = (text || query).trim();
     if (!input) return;
     if (!hasKey) {
-      Alert.alert('Gemini key needed', 'Add your API key in Profile → AI Settings.');
+      Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features.');
       return;
     }
     setAiLoading(true);
@@ -484,6 +486,19 @@ export default function HomeScreen() {
             >
               <Text style={[styles.utilBtnText, { color: '#60a5fa' }]}>▦  Scan Barcode</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.utilBtn, { backgroundColor: '#1e3a5f', borderColor: '#2563eb' }]}
+              onPress={() => {
+                if (!hasKey) {
+                  Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features to scan labels.');
+                  return;
+                }
+                setLabelScannerVisible(true);
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.utilBtnText, { color: '#60a5fa' }]}>🏷  Scan Label</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Staged photo indicator */}
@@ -507,7 +522,7 @@ export default function HomeScreen() {
                 onPress={async () => {
                   if (!canAnalyze) return;
                   if (!hasKey) {
-                    Alert.alert('Gemini key needed', 'Add your API key in Profile → AI Settings.');
+                    Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features.');
                     return;
                   }
                   if (stagedPhoto) {
@@ -756,6 +771,13 @@ export default function HomeScreen() {
         visible={scannerVisible}
         onClose={() => setScannerVisible(false)}
         onFound={(item) => logDirect(item)}
+      />
+
+      <LabelScannerModal
+        visible={labelScannerVisible}
+        onClose={() => setLabelScannerVisible(false)}
+        onFound={(item) => logDirect(item)}
+        geminiKey={geminiKey}
       />
     </SafeAreaView>
   );
