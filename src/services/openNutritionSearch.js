@@ -11,56 +11,137 @@
 
 const OPENNUTRITION_GZ = '/data/opennutrition_foods.compressed.json.gz';
 
+// Cache Storage layer (option 1: persist the DECOMPRESSED JSON text so repeat
+// loads skip the 28MB fetch + ~150MB gzip decompress). Bump CACHE_VERSION
+// whenever the served dataset changes — old versioned entries are pruned on the
+// next load, so a stale decompressed copy can't be served forever.
+const CACHE_NAME = 'macromate-opennutrition';
+const CACHE_VERSION = 1;
+// Synthetic request key stored in Cache Storage. The version is in the URL so a
+// bump misses the old entry (which then gets pruned) and re-decompresses fresh.
+const CACHE_KEY = `${OPENNUTRITION_GZ}?decompressed=v${CACHE_VERSION}`;
+
 let openNutritionFoods = null;
+// In-flight guard: if two callers load before the first resolves, they share one
+// fetch/decompress instead of each doing the expensive work in parallel.
+let loadPromise = null;
+
+const cacheStorageAvailable = () =>
+  typeof caches !== 'undefined' && caches && typeof caches.open === 'function';
+
+// Read the decompressed JSON text from Cache Storage. Returns null on any miss,
+// unavailability, or read error — the caller then falls back to the network.
+async function readCachedText() {
+  if (!cacheStorageAvailable()) return null;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const hit = await cache.match(CACHE_KEY);
+    if (!hit) return null;
+    return await hit.text();
+  } catch {
+    return null;
+  }
+}
+
+// Persist decompressed text for next time and prune any older-version entries.
+// Best-effort: quota errors / unavailability are swallowed so a failed write
+// never breaks the load (this session already has the parsed foods in memory).
+async function writeCachedText(text) {
+  if (!cacheStorageAvailable()) return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    // Prune stale versions so old decompressed copies don't waste quota.
+    const keys = await cache.keys();
+    await Promise.all(
+      keys
+        .filter(req => req.url && !req.url.endsWith(CACHE_KEY))
+        .map(req => cache.delete(req))
+    );
+    await cache.put(CACHE_KEY, new Response(text, {
+      headers: { 'Content-Type': 'application/json' },
+    }));
+  } catch {
+    /* QuotaExceededError / unavailable — parsed foods still serve this session */
+  }
+}
 
 /**
  * Load OpenNutrition foods. In Node (testing), loads JSON directly.
- * In browser, fetches and decompresses .gz on the fly.
+ * In browser, serves decompressed JSON from Cache Storage when present,
+ * otherwise fetches + decompresses the .gz and caches the result.
  */
-async function loadOpenNutritionFoods() {
-  if (openNutritionFoods !== null) return openNutritionFoods;
+function loadOpenNutritionFoods() {
+  if (openNutritionFoods !== null) return Promise.resolve(openNutritionFoods);
+  if (loadPromise) return loadPromise;
+  loadPromise = doLoadOpenNutritionFoods()
+    .then(foods => {
+      openNutritionFoods = foods;
+      return foods;
+    })
+    .finally(() => {
+      loadPromise = null;
+    });
+  return loadPromise;
+}
 
+async function doLoadOpenNutritionFoods() {
   // Node environment: load uncompressed JSON directly
   if (typeof window === 'undefined') {
     try {
-      openNutritionFoods = require('../data/opennutrition_foods.json');
-      console.log(`✅ Loaded ${openNutritionFoods.length.toLocaleString()} OpenNutrition foods (JSON)`);
+      const foods = require('../data/opennutrition_foods.json');
+      console.log(`✅ Loaded ${foods.length.toLocaleString()} OpenNutrition foods (JSON)`);
+      return foods;
     } catch (e) {
       console.warn('OpenNutrition JSON not available:', e.message);
-      openNutritionFoods = [];
+      return [];
     }
-    return openNutritionFoods;
   }
 
-  // Browser environment: fetch and decompress .gz
+  // Browser: try the decompressed-text cache first (fast path, no fetch/decompress).
+  const cachedText = await readCachedText();
+  if (cachedText) {
+    try {
+      const foods = JSON.parse(cachedText);
+      console.log(`✅ Loaded ${foods.length.toLocaleString()} OpenNutrition foods (Cache Storage)`);
+      return foods;
+    } catch {
+      // Corrupt cached entry — drop it and fall through to the network.
+      if (cacheStorageAvailable()) {
+        try { (await caches.open(CACHE_NAME)).delete(CACHE_KEY); } catch { /* ignore */ }
+      }
+      console.log('   OpenNutrition cache entry was invalid; re-fetching .gz.');
+    }
+  }
+
+  // Slow path: fetch and decompress .gz, then cache the decompressed text.
   try {
     const response = await fetch(OPENNUTRITION_GZ);
     if (response.ok) {
       const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
       if (contentType.includes('text/html')) {
-        openNutritionFoods = [];
         console.log('   OpenNutrition .gz not deployed on this server; add to client/public/data/ or client/src/data/ for branded search.');
-      } else {
-        const decompressionStream = new DecompressionStream('gzip');
-        const decompressedStream = response.body.pipeThrough(decompressionStream);
-        const blob = await new Response(decompressedStream).blob();
-        const text = await blob.text();
-        openNutritionFoods = JSON.parse(text);
-        console.log(`✅ Loaded ${openNutritionFoods.length.toLocaleString()} OpenNutrition foods (.gz)`);
+        return [];
       }
-    } else {
-      openNutritionFoods = [];
-      console.log('   OpenNutrition .gz not available; add to client/public/data/ for branded search.');
+      const decompressionStream = new DecompressionStream('gzip');
+      const decompressedStream = response.body.pipeThrough(decompressionStream);
+      const blob = await new Response(decompressedStream).blob();
+      const text = await blob.text();
+      const foods = JSON.parse(text);
+      console.log(`✅ Loaded ${foods.length.toLocaleString()} OpenNutrition foods (.gz)`);
+      // Cache for next load (best-effort, non-blocking).
+      writeCachedText(text);
+      return foods;
     }
+    console.log('   OpenNutrition .gz not available; add to client/public/data/ for branded search.');
+    return [];
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     if (msg.includes('decode') || msg.includes('Decode') || msg.includes('JSON')) {
       console.log('   OpenNutrition .gz not deployed on this server; branded search will use other sources.');
     }
-    openNutritionFoods = [];
     console.log('   OpenNutrition .gz not available; add to client/public/data/ for branded search.');
+    return [];
   }
-  return openNutritionFoods;
 }
 
 /**
