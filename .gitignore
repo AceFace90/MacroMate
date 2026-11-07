@@ -42,3 +42,8 @@ yarn-error.log*
 .idea/
 .vscode/
 *.sw?
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
