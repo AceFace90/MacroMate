@@ -148,13 +148,19 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Version", value: appVersion)
-            LabeledContent("Food data") {
-                Text("AFCD, OpenNutrition, Open Food Facts").multilineTextAlignment(.trailing)
+            Link(destination: URL(string: "https://www.opennutrition.app")!) {
+                LabeledContent("OpenNutrition", value: "ODbL")
+            }
+            Link(destination: URL(string: "https://world.openfoodfacts.org")!) {
+                LabeledContent("© Open Food Facts contributors", value: "ODbL")
+            }
+            Link(destination: URL(string: "https://www.foodstandards.gov.au/science-data/food-nutrient-databases/afcd")!) {
+                LabeledContent("Australian Food Composition Database", value: "FSANZ")
             }
         } header: {
             Text("About")
         } footer: {
-            Text("Calorie and macro targets are estimates (Mifflin-St Jeor) for general information, not medical advice.")
+            Text("Nutritional values are estimates only and are not intended for medical use. Calorie and macro targets use Mifflin-St Jeor for general information, not medical advice.")
         }
     }
 

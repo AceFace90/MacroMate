@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
@@ -140,10 +140,20 @@ export default function SettingsScreen() {
             {'Food data sourced from '}
             <Text style={{ fontWeight: '600' }}>USDA FoodData Central</Text>
             {' (public domain), '}
-            <Text style={{ fontWeight: '600' }}>Open Food Facts</Text>
-            {' (CC BY-SA 4.0), and the '}
+            <Text
+              style={{ fontWeight: '600', color: theme.accent }}
+              accessibilityRole="link"
+              onPress={() => Linking.openURL('https://www.opennutrition.app')}
+            >OpenNutrition</Text>
+            {' (ODbL), '}
+            <Text
+              style={{ fontWeight: '600', color: theme.accent }}
+              accessibilityRole="link"
+              onPress={() => Linking.openURL('https://world.openfoodfacts.org')}
+            >© Open Food Facts contributors</Text>
+            {' (ODbL), and the '}
             <Text style={{ fontWeight: '600' }}>Australian AFCD</Text>
-            {'. Nutritional values are estimates.'}
+            {'. Nutritional values are estimates only and are not intended for medical use.'}
           </Text>
         </Card>
 

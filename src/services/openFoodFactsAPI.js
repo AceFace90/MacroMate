@@ -9,6 +9,8 @@
  */
 
 const API_BASE_URL = 'https://world.openfoodfacts.org';
+// Open Food Facts asks every app to send an identifying User-Agent (AppName/Version).
+const USER_AGENT = 'MacroMate/2.0';
 const RATE_LIMIT_DELAY = 6000; // 6 seconds between requests (10/min = 6s)
 
 let lastRequestTime = 0;
@@ -113,7 +115,7 @@ export async function searchOpenFoodFactsAPI(query, limit = 5) {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'MacroMate/1.0 - Food tracking app'
+        'User-Agent': USER_AGENT
       }
     });
 
@@ -253,12 +255,12 @@ export async function getProductByBarcode(barcode) {
   }
 
   try {
-    const url = `${API_BASE_URL}/api/v2/product/${barcode}.json`;
+    const url = `${API_BASE_URL}/api/v3/product/${barcode}.json`;
     
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'MacroMate/1.0 - Food tracking app'
+        'User-Agent': USER_AGENT
       }
     });
 
@@ -268,7 +270,8 @@ export async function getProductByBarcode(barcode) {
 
     const data = await response.json();
     
-    if (!data.product || data.status === 0) {
+    // v3 returns status 'success' | 'warning' | 'failure'
+    if (!data.product || data.status === 'failure') {
       return null;
     }
 
