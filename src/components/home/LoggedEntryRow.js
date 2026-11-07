@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { spacing, typography, colors, radius } from '../../theme';
+import { spacing, typography, colors, radius, fontFamily } from '../../theme';
+import Icon from '../Icon';
 
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -13,7 +14,7 @@ export default function LoggedEntryRow({
 
   return (
     <View>
-      <View style={[styles.entryRow, { borderTopColor: theme.border }]}>
+      <View style={styles.entryRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[styles.entryName, { color: theme.text }]} numberOfLines={1}>{entry.name}</Text>
           <Text style={[styles.entrySub, { color: theme.textMuted }]}>
@@ -29,22 +30,26 @@ export default function LoggedEntryRow({
         <View style={styles.entryActions}>
           <TouchableOpacity
             onPress={() => isEditing ? onCancelEdit() : onStartEdit(entry)}
-            style={[styles.actionBtn, { borderColor: theme.accent }]}
+            style={styles.actionBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Edit entry"
           >
-            <Text style={[styles.actionBtnText, { color: theme.accent }]}>Edit</Text>
+            <Text style={[styles.actionBtnText, { color: theme.accent, fontFamily }]}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onRemove(viewDate, entry.id)}
-            style={[styles.actionBtn, { borderColor: colors.red }]}
+            style={styles.actionBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Remove entry"
           >
-            <Text style={[styles.actionBtnText, { color: colors.red }]}>✕</Text>
+            <Icon name="trash" size={18} color={theme.danger} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Inline full-macro editor */}
       {isEditing && (
-        <View style={[styles.editPanel, { borderTopColor: theme.border, backgroundColor: theme.input }]}>
+        <View style={[styles.editPanel, { backgroundColor: theme.input }]}>
           {/* Qty row with scale button */}
           <View style={styles.editRow}>
             <Text style={[styles.editLabel, { color: theme.textMuted }]}>Qty (g)</Text>
@@ -53,11 +58,11 @@ export default function LoggedEntryRow({
               onChangeText={onSetEditField('qty')}
               keyboardType="numeric"
               selectTextOnFocus
-              style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.card }]}
+              style={[styles.editInput, { color: theme.text, backgroundColor: theme.card }]}
             />
             <TouchableOpacity
               onPress={() => onApplyQtyScale(entry)}
-              style={[styles.scaleBtn, { borderColor: theme.accent }]}
+              style={styles.scaleBtn}
             >
               <Text style={[styles.scaleBtnText, { color: theme.accent }]}>Scale</Text>
             </TouchableOpacity>
@@ -72,11 +77,10 @@ export default function LoggedEntryRow({
                   onPress={() => onSetEditField('meal_type')(m.key)}
                   style={[
                     styles.editMealPill,
-                    { borderColor: active ? theme.accent : theme.border },
-                    active && { backgroundColor: theme.accentBg },
+                    { backgroundColor: active ? theme.accent : theme.fill },
                   ]}
                 >
-                  <Text style={[styles.editMealPillText, { color: active ? theme.accent : theme.textMuted }]}>
+                  <Text style={[styles.editMealPillText, { color: active ? '#fff' : theme.textSecondary }]}>
                     {m.label}
                   </Text>
                 </TouchableOpacity>
@@ -98,7 +102,7 @@ export default function LoggedEntryRow({
                   onChangeText={onSetEditField(f.key)}
                   keyboardType="numeric"
                   selectTextOnFocus
-                  style={[styles.editMacroInput, { color: theme.text, borderColor: f.color || theme.border, backgroundColor: theme.card }]}
+                  style={[styles.editMacroInput, { color: theme.text, backgroundColor: theme.card }]}
                 />
               </View>
             ))}
@@ -123,43 +127,43 @@ export default function LoggedEntryRow({
 const styles = StyleSheet.create({
   entryRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: spacing[3], borderTopWidth: 1, gap: spacing[2],
+    paddingTop: spacing[3], gap: spacing[2], flexWrap: 'wrap',
   },
-  entryName: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium },
-  entrySub: { fontSize: typography.sizes.xs, marginTop: 2 },
+  entryName: { fontSize: 15, fontWeight: typography.weights.medium },
+  entrySub: { fontSize: 13, marginTop: 2 },
   entryMacros: { alignItems: 'flex-end', minWidth: 72 },
-  entryCal: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold },
-  entryMacroSub: { fontSize: 10, marginTop: 1 },
-  entryActions: { flexDirection: 'row', gap: spacing[1] },
-  actionBtn: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[2], paddingVertical: 3 },
-  actionBtnText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
+  entryCal: { fontSize: 15, fontWeight: typography.weights.semibold },
+  entryMacroSub: { fontSize: 11, marginTop: 1 },
+  entryActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  actionBtn: { paddingHorizontal: spacing[1], paddingVertical: 4 },
+  actionBtnText: { fontSize: 15, fontWeight: typography.weights.medium },
 
   editPanel: {
-    borderTopWidth: 1, marginTop: spacing[2],
+    marginTop: spacing[2],
     padding: spacing[3], borderRadius: radius.md, gap: spacing[3],
   },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   editMealRow: { flexDirection: 'row', gap: spacing[2] },
-  editMealPill: { flex: 1, alignItems: 'center', paddingVertical: spacing[1], borderRadius: radius.md, borderWidth: 1 },
+  editMealPill: { flex: 1, alignItems: 'center', paddingVertical: spacing[1], borderRadius: 9 },
   editMealPillText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.bold },
   editLabel: { fontSize: typography.sizes.sm, width: 48 },
   editInput: {
-    width: 72, borderWidth: 1, borderRadius: radius.sm,
+    width: 72, borderRadius: radius.sm,
     paddingHorizontal: spacing[2], paddingVertical: spacing[1],
     fontSize: typography.sizes.sm, textAlign: 'center',
   },
-  scaleBtn: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[1] },
+  scaleBtn: { backgroundColor: 'rgba(120,120,128,0.2)', borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[1] },
   scaleBtnText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
   editMacroRow: { flexDirection: 'row', gap: spacing[2] },
   editMacroField: { flex: 1, alignItems: 'center', gap: 3 },
   editMacroLabel: { fontSize: 10, fontWeight: typography.weights.semibold },
   editMacroInput: {
-    width: '100%', borderWidth: 1, borderRadius: radius.sm,
+    width: '100%', borderRadius: radius.sm,
     paddingHorizontal: spacing[1], paddingVertical: spacing[1],
     fontSize: typography.sizes.sm, textAlign: 'center',
   },
   editActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  editSaveBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.sm },
-  editSaveBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#000' },
+  editSaveBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: 10 },
+  editSaveBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#fff' },
   editCancelText: { fontSize: typography.sizes.sm },
 });

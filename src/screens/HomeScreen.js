@@ -1,11 +1,14 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, TextInput, Platform,
+  ActivityIndicator, Alert, TextInput, Platform, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, typography, colors, radius } from '../theme';
+import { spacing, colors, fontFamily, breakpoints } from '../theme';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Icon from '../components/Icon';
 import { useLog, todayStr, sumEntries, getPreviousDays } from '../store/logStore';
 import { useGeminiKey } from '../hooks/useGeminiKey';
 import foodMatching from '../services/foodMatching';
@@ -24,10 +27,10 @@ import AIMealPanel from '../components/home/AIMealPanel';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MEALS = [
-  { key: 'BREAKFAST', label: 'B-FAST',  emoji: '🥚' },
-  { key: 'LUNCH',     label: 'LUNCH',   emoji: '🥗' },
-  { key: 'DINNER',    label: 'DINNER',  emoji: '🍽️' },
-  { key: 'SNACK',     label: 'SNACK',   emoji: '🍎' },
+  { key: 'BREAKFAST', label: 'Breakfast', emoji: '' },
+  { key: 'LUNCH',     label: 'Lunch', emoji: '' },
+  { key: 'DINNER',    label: 'Dinner', emoji: '' },
+  { key: 'SNACK',     label: 'Snack', emoji: '' },
 ];
 
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -36,6 +39,7 @@ const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
 
 export default function HomeScreen() {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
   const { logs, addEntry, removeEntry, updateEntry, getEntries, targets } = useLog();
   const { key: geminiKey, hasKey } = useGeminiKey();
 
@@ -328,19 +332,214 @@ export default function HomeScreen() {
   const showResults = !selectedFood && results.length > 0;
   const selectedCount = aiItems.filter(i => i.resolved && i.selected).length;
 
+  const wide = width >= breakpoints.desktop;
+  const titleText = isToday ? 'Today' : new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const narrative = calRemaining >= 0
+    ? `${calRemaining.toLocaleString('en-US')} kcal left`
+    : `${Math.abs(calRemaining).toLocaleString('en-US')} kcal over`;
+  const canAnalyze = !aiLoading && (query.trim().length > 0 || !!stagedPhoto);
+
+  const ringsBlock = (
+    <>
+      <MacroSummary rings={rings} totals={totals} targets={targets} calRemaining={calRemaining} theme={theme} />
+    </>
+  );
+
+  const loggingBlock = (
+    <Card style={styles.logCard}>
+      {/* Meal type — iOS segmented control */}
+      <View style={[styles.segment, { backgroundColor: theme.fill }]}>
+        {MEALS.map(m => {
+          const active = selectedMeal === m.key;
+          return (
+            <TouchableOpacity
+              key={m.key}
+              style={[styles.segItem, active && { backgroundColor: theme.isDark ? '#636366' : '#ffffff' }, active && styles.segActive]}
+              onPress={() => setSelectedMeal(m.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.segText, { color: theme.text, fontFamily, fontWeight: active ? '600' : '400' }]} numberOfLines={1}>
+                {m.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Search field */}
+      <View style={[styles.searchBar, { backgroundColor: theme.input }]}>
+        <Icon name="search" size={18} color={theme.textSecondary} />
+        <TextInput
+          value={query}
+          onChangeText={handleChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          placeholder="Type food name, or describe your meal…"
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.searchInput, { color: theme.text, fontFamily, outlineStyle: 'none' }]}
+          autoCorrect={false}
+          multiline
+        />
+        {searching && <ActivityIndicator size="small" color={theme.accent} />}
+      </View>
+
+      {/* Utility buttons */}
+      <View style={styles.utilBtnRow}>
+        <Button
+          variant="secondary" size="sm" style={styles.utilBtn}
+          onPress={handlePhotoMeal} disabled={aiLoading}
+          icon={<Icon name="camera" size={18} color={theme.accent} />}
+          title="Upload Image"
+        />
+        <Button
+          variant="secondary" size="sm" style={styles.utilBtn}
+          onPress={() => setScannerVisible(true)}
+          icon={<Icon name="barcode" size={18} color={theme.accent} />}
+          title="Scan Barcode"
+        />
+        <Button
+          variant="secondary" size="sm" style={styles.utilBtn}
+          onPress={() => {
+            if (!hasKey) {
+              Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features to scan labels.');
+              return;
+            }
+            setLabelScannerVisible(true);
+          }}
+          icon={<Icon name="label" size={18} color={theme.accent} />}
+          title="Scan Label"
+        />
+      </View>
+
+      {/* Staged photo indicator */}
+      {stagedPhoto && (
+        <View style={[styles.stagedPhotoRow, { backgroundColor: theme.accentBg }]}>
+          <Icon name="camera" size={16} color={theme.accent} />
+          <Text style={[styles.stagedPhotoText, { color: theme.accent, fontFamily }]} numberOfLines={1}>
+            {stagedPhoto.name || 'Photo ready'}
+          </Text>
+          <TouchableOpacity onPress={() => setStagedPhoto(null)} hitSlop={HIT} accessibilityLabel="Remove photo">
+            <Icon name="close" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Analyse & Log Food */}
+      <Button
+        variant="primary"
+        disabled={!canAnalyze}
+        loading={aiLoading}
+        icon={<Icon name="sparkles" size={18} color={theme.accentContrast} />}
+        title="Analyse & Log Food"
+        onPress={async () => {
+          if (!canAnalyze) return;
+          if (!hasKey) {
+            Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features.');
+            return;
+          }
+          if (stagedPhoto) handlePhotoAnalyze();
+          else handleAIAnalyze(query);
+        }}
+      />
+
+      {/* Quantity picker — shown after selecting a food */}
+      {selectedFood && (
+        <QuantityPickerRow
+          food={selectedFood}
+          qty={selectedQty}
+          onQtyChange={setSelectedQty}
+          onLog={confirmLog}
+          onCancel={() => setSelectedFood(null)}
+          theme={theme}
+        />
+      )}
+
+      {/* Recent foods */}
+      {showRecent && (
+        <View style={[styles.resultsList, { backgroundColor: theme.input }]}>
+          <Text style={[styles.listHeader, { color: theme.textSecondary, fontFamily }]}>Recent</Text>
+          {recentFoods.map((item, i) => (
+            <React.Fragment key={`${item.name}-${i}`}>
+              {i > 0 && <View style={[styles.sep, { backgroundColor: theme.separator }]} />}
+              <FoodResultRow item={item} onSelect={handleSelectFood} theme={theme} />
+            </React.Fragment>
+          ))}
+        </View>
+      )}
+
+      {/* Search results */}
+      {showResults && (
+        <View style={[styles.resultsList, { backgroundColor: theme.input }]}>
+          {results.map((item, i) => (
+            <React.Fragment key={`${item.name}-${i}`}>
+              {i > 0 && <View style={[styles.sep, { backgroundColor: theme.separator }]} />}
+              <FoodResultRow item={item} onSelect={handleSelectFood} theme={theme} />
+            </React.Fragment>
+          ))}
+        </View>
+      )}
+
+      {/* AI loading */}
+      {aiLoading && (
+        <View style={styles.aiLoadingRow}>
+          <ActivityIndicator color={theme.accent} />
+          <Text style={[styles.aiLoadingText, { color: theme.textSecondary, fontFamily }]}>Analysing meal…</Text>
+        </View>
+      )}
+
+      {/* AI items */}
+      <AIMealPanel
+        items={aiItems}
+        selectedCount={selectedCount}
+        onToggle={toggleAIItem}
+        onLogAll={logAllAI}
+        theme={theme}
+      />
+
+      {Platform.OS === 'web' && (
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handlePhotoFileChange}
+        />
+      )}
+    </Card>
+  );
+
+  const mealsBlock = MEALS.map(meal => (
+    <MealSection
+      key={meal.key}
+      meal={meal}
+      entries={grouped[meal.key] || []}
+      viewDate={viewDate}
+      editingId={editingId}
+      editFields={editFields}
+      meals={MEALS}
+      onStartEdit={startEdit}
+      onCancelEdit={() => setEditingId(null)}
+      onRemove={removeEntry}
+      onApplyQtyScale={applyQtyScale}
+      onSaveEdit={saveEdit}
+      onSetEditField={setEditField}
+      theme={theme}
+    />
+  ));
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
-        {/* Header */}
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: wide ? 40 : 96 }, wide && styles.containerWide]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Large title header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.accent }]}>MacroMate</Text>
-          <Text style={[styles.headerDate, { color: theme.textMuted }]}>
-            {new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long' })}
-          </Text>
+          <Text style={[styles.title, { color: theme.text, fontFamily }]}>{titleText}</Text>
+          <Text style={[styles.narrative, { color: theme.textSecondary, fontFamily }]}>{narrative}</Text>
         </View>
 
-        {/* Day navigation */}
         <DayNavigator
           viewDate={viewDate}
           isToday={isToday}
@@ -349,208 +548,24 @@ export default function HomeScreen() {
           theme={theme}
         />
 
-        {/* Macro rings */}
-        <MacroSummary rings={rings} totals={totals} targets={targets} calRemaining={calRemaining} theme={theme} />
-
-        {/* Meal type tabs */}
-        <View style={styles.mealTabs}>
-          {MEALS.map(m => (
-            <TouchableOpacity
-              key={m.key}
-              style={[
-                styles.mealTab,
-                { borderColor: theme.border },
-                selectedMeal === m.key && { backgroundColor: theme.accent, borderColor: theme.accent },
-              ]}
-              onPress={() => setSelectedMeal(m.key)}
-            >
-              <Text style={[styles.mealTabText, { color: selectedMeal === m.key ? '#000' : theme.textMuted }]}>
-                {m.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Search / log panel */}
-        <View style={styles.searchSection}>
-
-          {/* Main text input — DB search + AI description, multiline */}
-          <View style={[styles.searchBar, { backgroundColor: theme.input, borderColor: focused ? theme.accent : theme.border }]}>
-            <TextInput
-              value={query}
-              onChangeText={handleChangeText}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setTimeout(() => setFocused(false), 150)}
-              placeholder={`Type food name, or describe your meal…`}
-              placeholderTextColor={theme.textMuted}
-              style={[styles.searchInput, { color: theme.text }]}
-              autoCorrect={false}
-              multiline
-            />
-            {searching && <ActivityIndicator size="small" color={theme.accent} style={{ marginLeft: spacing[2], alignSelf: 'flex-start', marginTop: 2 }} />}
+        {wide ? (
+          <View style={styles.cols}>
+            <View style={styles.col}>
+              {ringsBlock}
+              <View style={{ height: 12 }} />
+              {loggingBlock}
+            </View>
+            <View style={styles.col}>{mealsBlock}</View>
           </View>
-
-          {/* Utility buttons — Upload Image + Scan Barcode, left-aligned small */}
-          <View style={styles.utilBtnRow}>
-            <TouchableOpacity
-              style={[styles.utilBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
-              onPress={handlePhotoMeal}
-              disabled={aiLoading}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.utilBtnText, { color: theme.text }]}>⬆  Upload Image</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.utilBtn, { backgroundColor: '#1e3a5f', borderColor: '#2563eb' }]}
-              onPress={() => setScannerVisible(true)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.utilBtnText, { color: '#60a5fa' }]}>▦  Scan Barcode</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.utilBtn, { backgroundColor: '#1e3a5f', borderColor: '#2563eb' }]}
-              onPress={() => {
-                if (!hasKey) {
-                  Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features to scan labels.');
-                  return;
-                }
-                setLabelScannerVisible(true);
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.utilBtnText, { color: '#60a5fa' }]}>🏷  Scan Label</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Staged photo indicator */}
-          {stagedPhoto && (
-            <View style={[styles.stagedPhotoRow, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
-              <Text style={[styles.stagedPhotoText, { color: theme.accent }]}>
-                📷 {stagedPhoto.name || 'Photo ready'}
-              </Text>
-              <TouchableOpacity onPress={() => setStagedPhoto(null)} hitSlop={HIT}>
-                <Text style={[styles.stagedPhotoRemove, { color: theme.textMuted }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Analyse & Log Food — big green button, active when text or photo is present */}
-          {(() => {
-            const canAnalyze = !aiLoading && (query.trim().length > 0 || !!stagedPhoto);
-            return (
-              <TouchableOpacity
-                style={[styles.analyzeBtn, { backgroundColor: canAnalyze ? theme.accent : theme.border }]}
-                onPress={async () => {
-                  if (!canAnalyze) return;
-                  if (!hasKey) {
-                    Alert.alert('Gemini key needed', 'Add your API key in Profile → Settings → AI Features.');
-                    return;
-                  }
-                  if (stagedPhoto) {
-                    handlePhotoAnalyze();
-                  } else {
-                    handleAIAnalyze(query);
-                  }
-                }}
-                disabled={!canAnalyze}
-                activeOpacity={0.85}
-              >
-                {aiLoading
-                  ? <ActivityIndicator color="#000" />
-                  : <Text style={[styles.analyzeBtnText, { color: canAnalyze ? '#000' : theme.textMuted }]}>
-                      ✨ Analyse & Log Food
-                    </Text>
-                }
-              </TouchableOpacity>
-            );
-          })()}
-
-          {/* Quantity picker — shown after selecting a food */}
-          {selectedFood && (
-            <QuantityPickerRow
-              food={selectedFood}
-              qty={selectedQty}
-              onQtyChange={setSelectedQty}
-              onLog={confirmLog}
-              onCancel={() => setSelectedFood(null)}
-              theme={theme}
-            />
-          )}
-
-          {/* Recent foods — shown on focus with empty query */}
-          {showRecent && (
-            <View style={[styles.resultsList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.listHeader, { color: theme.textMuted }]}>Recent</Text>
-              {recentFoods.map((item, i) => (
-                <React.Fragment key={`${item.name}-${i}`}>
-                  {i > 0 && <View style={[styles.sep, { backgroundColor: theme.border }]} />}
-                  <FoodResultRow item={item} onSelect={handleSelectFood} theme={theme} />
-                </React.Fragment>
-              ))}
-            </View>
-          )}
-
-          {/* Search results */}
-          {showResults && (
-            <View style={[styles.resultsList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              {results.map((item, i) => (
-                <React.Fragment key={`${item.name}-${i}`}>
-                  {i > 0 && <View style={[styles.sep, { backgroundColor: theme.border }]} />}
-                  <FoodResultRow item={item} onSelect={handleSelectFood} theme={theme} />
-                </React.Fragment>
-              ))}
-            </View>
-          )}
-
-
-          {/* AI loading */}
-          {aiLoading && (
-            <View style={styles.aiLoadingRow}>
-              <ActivityIndicator color={theme.accent} />
-              <Text style={[styles.aiLoadingText, { color: theme.textMuted }]}>Analysing meal…</Text>
-            </View>
-          )}
-
-          {/* AI items */}
-          <AIMealPanel
-            items={aiItems}
-            selectedCount={selectedCount}
-            onToggle={toggleAIItem}
-            onLogAll={logAllAI}
-            theme={theme}
-          />
-
-          {Platform.OS === 'web' && (
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handlePhotoFileChange}
-            />
-          )}
-        </View>
-
-        {/* Meal sections */}
-        {MEALS.map(meal => (
-          <MealSection
-            key={meal.key}
-            meal={meal}
-            entries={grouped[meal.key] || []}
-            viewDate={viewDate}
-            editingId={editingId}
-            editFields={editFields}
-            meals={MEALS}
-            onStartEdit={startEdit}
-            onCancelEdit={() => setEditingId(null)}
-            onRemove={removeEntry}
-            onApplyQtyScale={applyQtyScale}
-            onSaveEdit={saveEdit}
-            onSetEditField={setEditField}
-            theme={theme}
-          />
-        ))}
-
+        ) : (
+          <>
+            {ringsBlock}
+            <View style={{ height: 12 }} />
+            {loggingBlock}
+            <View style={{ height: 12 }} />
+            {mealsBlock}
+          </>
+        )}
       </ScrollView>
 
       <BarcodeScannerModal
@@ -572,62 +587,40 @@ export default function HomeScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { padding: spacing[4], paddingBottom: spacing[12] },
+  container: { padding: 20, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  containerWide: { maxWidth: 1080 },
+  cols: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
+  col: { flex: 1, minWidth: 0 },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[3] },
-  title: { fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold },
-  headerDate: { fontSize: typography.sizes.sm },
+  header: { marginTop: 8, marginBottom: 16 },
+  title: { fontSize: 34, fontWeight: '700' },
+  narrative: { fontSize: 20, marginTop: 2 },
 
-  mealTabs: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
-  mealTab: {
-    flex: 1, paddingVertical: spacing[2], alignItems: 'center',
-    borderRadius: radius.md, borderWidth: 1,
-  },
-  mealTabText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.bold },
+  logCard: { gap: 12 },
+  segment: { flexDirection: 'row', borderRadius: 9, padding: 2 },
+  segItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 7 },
+  segActive: { boxShadow: '0 1px 3px rgba(0,0,0,0.2)' },
+  segText: { fontSize: 13 },
 
-  searchSection: { marginBottom: spacing[4] },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: radius.lg, borderWidth: 1.5,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
-    marginBottom: spacing[2],
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, paddingHorizontal: 12, minHeight: 44,
   },
-  searchInput: { flex: 1, fontSize: typography.sizes.base },
-  aiSparkleBtn: { marginLeft: spacing[2], padding: spacing[1] },
-  utilBtnRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
-  utilBtn: {
-    borderWidth: 1, borderRadius: radius.lg,
-    paddingVertical: spacing[2], paddingHorizontal: spacing[3],
-  },
-  utilBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 17, paddingVertical: 10 },
+
+  utilBtnRow: { flexDirection: 'row', gap: 8 },
+  utilBtn: { flex: 1, minWidth: 0, paddingHorizontal: 6 },
+
   stagedPhotoRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: radius.lg, borderWidth: 1,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    marginBottom: spacing[2],
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
   },
-  stagedPhotoText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, flex: 1 },
-  stagedPhotoRemove: { fontSize: typography.sizes.lg, paddingLeft: spacing[3] },
-  analyzeBtn: {
-    borderRadius: radius.lg, paddingVertical: spacing[4],
-    alignItems: 'center', marginBottom: spacing[2],
-  },
-  analyzeBtnText: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold },
+  stagedPhotoText: { fontSize: 15, fontWeight: '600', flex: 1 },
 
-  resultsList: {
-    borderRadius: radius.lg, borderWidth: 1,
-    marginBottom: spacing[2], overflow: 'hidden',
-  },
-  listHeader: {
-    fontSize: typography.sizes.xs, fontWeight: typography.weights.bold,
-    paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[1],
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  },
-  sep: { height: 1, marginHorizontal: spacing[4] },
+  resultsList: { borderRadius: 14, overflow: 'hidden' },
+  listHeader: { fontSize: 13, paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[1] },
+  sep: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing[4] },
 
-  aiLoadingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    padding: spacing[4], justifyContent: 'center',
-  },
-  aiLoadingText: { fontSize: typography.sizes.sm },
+  aiLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[2], justifyContent: 'center' },
+  aiLoadingText: { fontSize: 15 },
 });

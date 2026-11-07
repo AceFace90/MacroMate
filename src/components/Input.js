@@ -1,15 +1,15 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
-import { radius, spacing, typography } from '../theme';
+import { spacing, typography, fontFamily } from '../theme';
 
-// Ported from GymMate src/components/Input.js (shared design kit).
+// iOS filled text field: theme.input fill, no border, radius 10, 44px tall.
 export default function Input({ label, value, onChangeText, placeholder, keyboardType, style, multiline, ...rest }) {
   const { theme } = useTheme();
   return (
     <View style={style}>
       {label && (
-        <Text style={[styles.label, { color: theme.textSecondary, fontSize: typography.sizes.sm }]}>
+        <Text style={[styles.label, { color: theme.textSecondary, fontSize: typography.sizes.sm, fontFamily }]}>
           {label}
         </Text>
       )}
@@ -24,11 +24,12 @@ export default function Input({ label, value, onChangeText, placeholder, keyboar
           styles.input,
           {
             backgroundColor: theme.input,
-            borderColor: theme.border,
             color: theme.text,
             textAlignVertical: multiline ? 'top' : 'center',
-            minHeight: multiline ? 80 : undefined,
+            minHeight: multiline ? 80 : 44,
+            fontFamily,
           },
+          { outlineStyle: 'none' },
         ]}
         {...rest}
       />
@@ -37,15 +38,11 @@ export default function Input({ label, value, onChangeText, placeholder, keyboar
 }
 
 const styles = StyleSheet.create({
-  label: {
-    marginBottom: spacing[1],
-    fontWeight: '500',
-  },
+  label: { marginBottom: spacing[1], fontWeight: '500' },
   input: {
-    borderRadius: radius.md,
-    borderWidth: 1,
+    borderRadius: 10,
     paddingHorizontal: spacing[3],
-    paddingVertical: spacing[3],
-    fontSize: typography.sizes.base,
+    paddingVertical: 10,
+    fontSize: 17,
   },
 });

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, TextInput, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, typography, radius, colors } from '../theme';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Input from '../components/Input';
+import { colors, fontFamily, breakpoints } from '../theme';
+import Icon from '../components/Icon';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import { calculateBMR, calculateTDEE, calculateAge, computeGoalTargets } from '../services/calculations';
@@ -49,26 +47,24 @@ const CARBS_FAT_SPLITS = [
 
 const COUNTRY_OPTIONS = getCountryOptions();
 
-function PillRow({ options, value, onSelect }) {
+function Segmented({ options, value, onSelect }) {
   const { theme } = useTheme();
   return (
-    <View style={styles.pillRow}>
+    <View style={[styles.segTrack, { backgroundColor: theme.fill }]} accessibilityRole="radiogroup">
       {options.map((o) => {
-        const active = value === (o.key ?? o.value);
         const key = o.key ?? o.value;
+        const active = value === key;
         return (
           <TouchableOpacity
             key={key}
             onPress={() => onSelect(key)}
-            style={[
-              styles.pill,
-              { borderColor: theme.border },
-              active && { borderColor: theme.accent, backgroundColor: theme.accentBg },
-            ]}
             activeOpacity={0.7}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            style={[styles.segItem, active && { backgroundColor: theme.isDark ? '#636366' : '#ffffff' }, active && styles.segActive]}
           >
-            <Text style={[styles.pillText, { color: active ? theme.accent : theme.textSecondary }]}>
-              {o.label}
+            <Text style={[styles.segText, { color: theme.text, fontWeight: active ? '600' : '400', fontFamily }]} numberOfLines={1}>
+              {o.short ?? o.label}
             </Text>
           </TouchableOpacity>
         );
@@ -77,26 +73,105 @@ function PillRow({ options, value, onSelect }) {
   );
 }
 
-function MetricTile({ value, label, sub, color }) {
+function SectionHeader({ children }) {
   const { theme } = useTheme();
-  const tileColor = color || theme.accent;
-  const tileBg = color
-    ? `${color}1a`
-    : theme.accentBg;
-  const tileBorder = color
-    ? `${color}4d`
-    : theme.accentBorder;
+  return <Text style={[styles.sectionHeader, { color: theme.textSecondary, fontFamily }]}>{children}</Text>;
+}
+
+function SectionFooter({ children }) {
+  const { theme } = useTheme();
+  return <Text style={[styles.sectionFooter, { color: theme.textSecondary, fontFamily }]}>{children}</Text>;
+}
+
+function Group({ children }) {
+  const { theme } = useTheme();
+  const items = React.Children.toArray(children).filter(Boolean);
   return (
-    <View style={[styles.tile, { backgroundColor: tileBg, borderColor: tileBorder }]}>
-      <Text style={[styles.tileValue, { color: tileColor }]}>{value}</Text>
-      <Text style={[styles.tileLabel, { color: theme.textSecondary }]}>{label}</Text>
-      {sub ? <Text style={[styles.tileSub, { color: theme.textMuted }]}>{sub}</Text> : null}
+    <View style={[styles.group, { backgroundColor: theme.card }]}>
+      {items.map((c, i) => (
+        <View key={i}>
+          {i > 0 && <View style={[styles.hairline, { backgroundColor: theme.separator }]} />}
+          {c}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function Row({ label, children, stacked }) {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.rowItem, stacked && styles.rowStacked]}>
+      <Text style={[styles.rowLabel, { color: theme.text, fontFamily }]}>{label}</Text>
+      <View style={stacked ? styles.rowStackedBody : styles.rowValue}>{children}</View>
+    </View>
+  );
+}
+
+function RowInput({ value, onChangeText, placeholder, keyboardType, label, testID }) {
+  const { theme } = useTheme();
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={theme.textMuted}
+      keyboardType={keyboardType}
+      accessibilityLabel={label}
+      testID={testID}
+      style={[styles.rowInput, { color: theme.text, fontFamily }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+    />
+  );
+}
+
+// iOS-style picker row: native <select> on web, segmented fallback on native.
+function SelectRow({ label, options, value, onSelect }) {
+  const { theme } = useTheme();
+  if (Platform.OS !== 'web') {
+    return (
+      <Row label={label} stacked>
+        <Segmented options={options} value={value} onSelect={onSelect} />
+      </Row>
+    );
+  }
+  return (
+    <Row label={label}>
+      <View style={styles.selectWrap}>
+        <select
+          aria-label={label}
+          value={value}
+          onChange={(e) => onSelect(e.target.value)}
+          style={{
+            appearance: 'none', WebkitAppearance: 'none', background: 'transparent', border: 'none', outline: 'none',
+            color: theme.accent, fontSize: 17, textAlign: 'right', textAlignLast: 'right', cursor: 'pointer',
+            maxWidth: 260, paddingRight: 4, fontFamily, colorScheme: theme.isDark ? 'dark' : 'light',
+          }}
+        >
+          {options.map((o) => {
+            const k = o.key ?? o.value;
+            return <option key={k} value={k}>{o.label}</option>;
+          })}
+        </select>
+        <Icon name="chevronDown" size={14} color={theme.textSecondary} />
+      </View>
+    </Row>
+  );
+}
+
+function MacroStat({ value, label, color }) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.macroStat}>
+      <Text style={[styles.macroLabel, { color: theme.textSecondary, fontFamily }]}>{label}</Text>
+      <Text style={[styles.macroValue, { color, fontFamily }]}>{value}</Text>
     </View>
   );
 }
 
 export default function ProfileScreen({ session, onTargetsChange, navigation }) {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const bottomPad = width < breakpoints.desktop ? 96 : 40;
   const [form, setForm] = useState({
     name: '',
     weight_kg: '',
@@ -163,7 +238,7 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
     const bmi = form.weight_kg && form.height_cm
       ? (parseFloat(form.weight_kg) / Math.pow(parseFloat(form.height_cm) / 100, 2)).toFixed(1)
       : null;
-    return { tdee, bmi };
+    return { tdee, bmi, bmr: Math.round(bmr) };
   })();
 
   // Computed goal targets (adjusted calories + protein-first macros).
@@ -219,252 +294,188 @@ export default function ProfileScreen({ session, onTargetsChange, navigation }) 
     }
   };
 
+  const deficitOptions = form.goal_type === 'WEIGHT_LOSS' ? WEIGHT_LOSS_DEFICITS : MUSCLE_GAIN_SURPLUSES;
+  const sexOptions = SEX;
+  const goalOptions = GOAL_TYPES.map(g => ({ ...g, short: g.label.replace('Weight Loss', 'Lose').replace('Maintenance', 'Maintain').replace('Muscle Gain', 'Gain') }));
+  const splitOptions = CARBS_FAT_SPLITS.map(o => ({ ...o, short: o.key.replace('/', ' / ') }));
+  const deficitSegs = deficitOptions.map(o => ({ ...o, short: o.label.split(' ')[0] }));
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={[styles.screenTitle, { color: theme.accent }]}>Profile 👤</Text>
-        <Text style={[styles.email, { color: theme.textMuted, marginBottom: spacing[4] }]}>{session?.user?.email}</Text>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.screenTitle, { color: theme.text, fontFamily }]} accessibilityRole="header">Profile</Text>
+        {session?.user?.email ? (
+          <Text style={[styles.email, { color: theme.textSecondary, fontFamily }]}>{session.user.email}</Text>
+        ) : null}
 
-        {/* ── Current Goals card — shown once weight/height/DOB are filled ── */}
-        {!goalComputed && (
-          <Card style={[styles.card, styles.goalsCard]}>
-            <Text style={[styles.goalCardTitle, { color: theme.text }]}>Current Goals</Text>
-            <Text style={[styles.nudgeText, { color: theme.textMuted }]}>
-              Fill in Weight, Height, and Date of Birth below then tap Save Profile to see your calculated daily targets here.
-            </Text>
-          </Card>
-        )}
-        {goalComputed && (
-          <Card style={[styles.card, styles.goalsCard]}>
-            <View style={styles.cardHeader}>
-              <Text style={[styles.goalCardTitle, { color: theme.text }]}>Current Goals</Text>
-              <Text style={[styles.goalTypeLabel, { color: theme.accent }]}>📋 {goalLabel}</Text>
-            </View>
-
-            {/* Top row: Daily Calories + Protein Target */}
-            <View style={styles.goalTopRow}>
-              <View style={[styles.goalBigTile, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                <Text style={[styles.goalBigTileLabel, { color: theme.textSecondary }]}>Daily Calories</Text>
-                <Text style={[styles.goalBigTileValue, { color: theme.accent }]}>
-                  {goalComputed.adjustedCalories}
-                </Text>
-                <Text style={[styles.goalBigTileSub, { color: theme.textMuted }]}>kcal/day</Text>
-              </View>
-              <View style={[styles.goalBigTile, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                <Text style={[styles.goalBigTileLabel, { color: theme.textSecondary }]}>Protein Target</Text>
-                <Text style={[styles.goalBigTileValue, { color: colors.protein }]}>
-                  {`${goalComputed.macros.protein}g`}
-                </Text>
-                <Text style={[styles.goalBigTileSub, { color: theme.textMuted }]}>
-                  {`${form.protein_per_kg}g/kg body weight`}
-                </Text>
-              </View>
-            </View>
-
-            {/* Bottom row: Protein / Carbs / Fat */}
-            <View style={styles.tiles}>
-              <MetricTile value={`${goalComputed.macros.protein}g`} label="Protein" color={colors.protein} />
-              <MetricTile value={`${goalComputed.macros.carbs}g`}   label="Carbs"   color={colors.carbs} />
-              <MetricTile value={`${goalComputed.macros.fat}g`}     label="Fat"     color={colors.fat} />
-            </View>
-
-            <Text style={[styles.splitLine, { color: theme.textMuted }]}>
-              {`Carbs/Fat Split: ${form.carbs_fat_split}`}
-            </Text>
-          </Card>
-        )}
-
-        {/* ── Personal Stats card ── */}
-        <Card style={styles.card}>
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PERSONAL</Text>
-          <Input
-            label="Display name"
-            placeholder="Your name"
-            value={String(form.name ?? '')}
-            onChangeText={set('name')}
-          />
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Weight (kg)"
-                placeholder="75"
-                keyboardType="decimal-pad"
-                value={String(form.weight_kg ?? '')}
-                onChangeText={set('weight_kg')}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Height (cm)"
-                placeholder="175"
-                keyboardType="decimal-pad"
-                value={String(form.height_cm ?? '')}
-                onChangeText={set('height_cm')}
-              />
-            </View>
+        {/* Current Goals */}
+        <View style={[styles.goalsCard, { backgroundColor: theme.card }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.goalCardTitle, { color: theme.text, fontFamily }]}>Current Goals</Text>
+            {goalComputed ? <Text style={[styles.goalTypeLabel, { color: theme.accent, fontFamily }]}>{goalLabel}</Text> : null}
           </View>
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Date of birth</Text>
-          {Platform.OS === 'web' ? (
-            <View style={[styles.datePickerWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+          {!goalComputed ? (
+            <Text style={[styles.nudgeText, { color: theme.textSecondary, fontFamily }]}>
+              Fill in weight, height and date of birth below, then tap Save Profile to see your calculated daily targets here.
+            </Text>
+          ) : (
+            <>
+              <View style={styles.calRow}>
+                <Text style={[styles.calValue, { color: theme.accent, fontFamily }]}>{goalComputed.adjustedCalories}</Text>
+                <Text style={[styles.calUnit, { color: theme.textSecondary, fontFamily }]}>kcal / day</Text>
+              </View>
+              {baseComputed ? (
+                <Text style={[styles.bmrLine, { color: theme.textSecondary, fontFamily }]}>
+                  {`BMR ${baseComputed.bmr} kcal  •  TDEE ${baseComputed.tdee} kcal${baseComputed.bmi ? `  •  BMI ${baseComputed.bmi}` : ''}`}
+                </Text>
+              ) : null}
+              <View style={[styles.hairline, { backgroundColor: theme.separator, marginVertical: 14 }]} />
+              <View style={styles.macroRow}>
+                <MacroStat label="Protein" value={`${goalComputed.macros.protein} g`} color={colors.protein} />
+                <MacroStat label="Carbs" value={`${goalComputed.macros.carbs} g`} color={colors.carbs} />
+                <MacroStat label="Fat" value={`${goalComputed.macros.fat} g`} color={colors.fat} />
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* About you */}
+        <SectionHeader>About you</SectionHeader>
+        <Group>
+          <Row label="Name">
+            <RowInput label="Display name" placeholder="Your name" value={String(form.name ?? '')} onChangeText={set('name')} />
+          </Row>
+          <Row label="Weight (kg)">
+            <RowInput label="Weight (kg)" placeholder="75" keyboardType="decimal-pad" value={String(form.weight_kg ?? '')} onChangeText={set('weight_kg')} />
+          </Row>
+          <Row label="Height (cm)">
+            <RowInput label="Height (cm)" placeholder="175" keyboardType="decimal-pad" value={String(form.height_cm ?? '')} onChangeText={set('height_cm')} />
+          </Row>
+          <Row label="Date of birth">
+            {Platform.OS === 'web' ? (
               <input
                 type="date"
+                aria-label="Date of birth"
                 value={form.dob || ''}
                 onChange={e => set('dob')(e.target.value)}
                 max={new Date().toISOString().slice(0, 10)}
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'inherit',
-                  fontSize: 15,
-                  width: '100%',
-                  padding: 0,
-                  colorScheme: 'inherit',
+                  background: 'transparent', border: 'none', outline: 'none', color: theme.text,
+                  fontSize: 17, textAlign: 'right', fontFamily, colorScheme: theme.isDark ? 'dark' : 'light',
                 }}
               />
-            </View>
-          ) : (
-            <Input
-              label=""
-              placeholder="1990-01-15"
-              value={String(form.dob ?? '')}
-              onChangeText={set('dob')}
-            />
-          )}
+            ) : (
+              <RowInput label="Date of birth" placeholder="1990-01-15" value={String(form.dob ?? '')} onChangeText={set('dob')} />
+            )}
+          </Row>
+          <Row label="Gender" stacked>
+            <Segmented options={sexOptions} value={form.gender} onSelect={set('gender')} />
+          </Row>
+        </Group>
 
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Biological Sex</Text>
-          <PillRow options={SEX} value={form.gender} onSelect={set('gender')} />
-
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Activity Level</Text>
-          <PillRow options={ACTIVITY} value={form.activity_level} onSelect={set('activity_level')} />
-
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Country</Text>
-          <PillRow options={COUNTRY_OPTIONS} value={form.country} onSelect={set('country')} />
-          {selectedCountry && (
-            <Text style={[styles.helperText, { color: theme.textMuted }]}>
-              {selectedCountry.description}
-            </Text>
-          )}
-        </Card>
-
-        {/* ── Goal Settings card ── */}
-        <Card style={styles.card}>
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>GOAL SETTINGS</Text>
-
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Goal Type</Text>
-          <PillRow options={GOAL_TYPES} value={form.goal_type} onSelect={setGoalType} />
-
+        {/* Activity & goal */}
+        <View style={{ height: 8 }} />
+        <SectionHeader>Activity & goal</SectionHeader>
+        <Group>
+          <SelectRow label="Activity level" options={ACTIVITY} value={form.activity_level} onSelect={set('activity_level')} />
+          <SelectRow label="Country" options={COUNTRY_OPTIONS} value={form.country} onSelect={set('country')} />
+          <Row label="Goal" stacked>
+            <Segmented options={goalOptions} value={form.goal_type} onSelect={setGoalType} />
+          </Row>
           {form.goal_type !== 'MAINTENANCE' && (
-            <>
-              <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>
-                {form.goal_type === 'WEIGHT_LOSS' ? 'Calorie Deficit' : 'Calorie Surplus'}
-              </Text>
-              <PillRow
-                options={form.goal_type === 'WEIGHT_LOSS' ? WEIGHT_LOSS_DEFICITS : MUSCLE_GAIN_SURPLUSES}
-                value={form.calorie_deficit}
-                onSelect={set('calorie_deficit')}
-              />
-              <Text style={[styles.helperText, { color: theme.textMuted }]}>
-                {form.goal_type === 'WEIGHT_LOSS'
-                  ? 'Recommended: 200–500 cal deficit to preserve muscle while losing fat'
-                  : 'Lean bulk minimises fat gain'}
-              </Text>
-            </>
+            <Row label={form.goal_type === 'WEIGHT_LOSS' ? 'Calorie deficit' : 'Calorie surplus'} stacked>
+              <Segmented options={deficitSegs} value={form.calorie_deficit} onSelect={set('calorie_deficit')} />
+            </Row>
           )}
+          <Row label="Protein (g/kg)">
+            <RowInput label="Protein target (g/kg body weight)" placeholder="2.0" keyboardType="decimal-pad" value={String(form.protein_per_kg ?? '')} onChangeText={set('protein_per_kg')} />
+          </Row>
+          <Row label="Carbs / fat split" stacked>
+            <Segmented options={splitOptions} value={form.carbs_fat_split} onSelect={set('carbs_fat_split')} />
+          </Row>
+        </Group>
+        <SectionFooter>
+          {[
+            selectedCountry?.description,
+            form.goal_type === 'WEIGHT_LOSS'
+              ? 'Recommended: 200–500 cal deficit to preserve muscle while losing fat.'
+              : form.goal_type === 'MUSCLE_GAIN' ? 'A lean bulk minimises fat gain.' : null,
+            `Recommended protein: 1.6–2.2 g/kg for muscle building.${form.weight_kg && form.protein_per_kg ? ` Current target: ${Math.round(parseFloat(form.protein_per_kg) * parseFloat(form.weight_kg))} g protein/day.` : ''}`,
+            'The remaining calories after protein are split between carbs and fat.',
+          ].filter(Boolean).join(' ')}
+        </SectionFooter>
 
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>
-            Protein Target (g/kg body weight)
-          </Text>
-          <Input
-            label=""
-            placeholder="2.0"
-            keyboardType="decimal-pad"
-            value={String(form.protein_per_kg ?? '')}
-            onChangeText={set('protein_per_kg')}
-          />
-          <Text style={[styles.helperText, { color: theme.textMuted }]}>
-            {`Recommended: 1.6–2.2 g/kg for muscle building.${form.weight_kg && form.protein_per_kg ? ` Current target: ${Math.round(parseFloat(form.protein_per_kg) * parseFloat(form.weight_kg))}g protein/day` : ''}`}
-          </Text>
-
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Carbs / Fat Split</Text>
-          <PillRow options={CARBS_FAT_SPLITS} value={form.carbs_fat_split} onSelect={set('carbs_fat_split')} />
-          <Text style={[styles.helperText, { color: theme.textMuted }]}>
-            This determines how remaining calories (after protein) are split between carbs and fat
-          </Text>
-        </Card>
-
-        {/* ── Calculated Metrics (BMI / TDEE baseline) ── */}
-        {baseComputed && (
-          <Card style={styles.card}>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>CALCULATED METRICS</Text>
-            <View style={styles.tiles}>
-              {baseComputed.bmi && (
-                <MetricTile value={baseComputed.bmi} label="BMI" />
-              )}
-              <MetricTile value={`${baseComputed.tdee} kcal`} label="Est. daily need (TDEE)" />
-            </View>
-          </Card>
-        )}
-
-        <Button
-          title={saved ? 'Saved ✓' : 'Save Profile'}
-          loading={saving}
+        <TouchableOpacity
           onPress={save}
-          style={{ marginTop: spacing[2] }}
-        />
+          disabled={saving}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={[styles.primaryBtn, { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 }]}
+        >
+          <Text style={[styles.primaryBtnText, { color: theme.accentContrast, fontFamily }]}>
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save Profile'}
+          </Text>
+        </TouchableOpacity>
 
-        <Button
-          title="📋  Food History"
-          variant="ghost"
-          onPress={() => navigation.navigate('FoodHistory')}
-          style={{ marginTop: spacing[3] }}
-        />
-
-        <Button
-          title="Sign out"
-          variant="ghost"
-          onPress={() => signOut().catch(e => Alert.alert('Error', e.message))}
-          style={{ marginTop: spacing[3] }}
-        />
+        <View style={{ height: 24 }} />
+        <Group>
+          <TouchableOpacity
+            style={styles.linkRow}
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('Today', { screen: 'FoodHistory' })}
+          >
+            <Icon name="clock" size={20} color={theme.accent} />
+            <Text style={[styles.linkText, { color: theme.text, fontFamily }]}>Food history</Text>
+            <Icon name="chevronRight" size={16} color={theme.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.linkRow}
+            accessibilityRole="button"
+            onPress={() => signOut().catch(e => Alert.alert('Error', e.message))}
+          >
+            <Icon name="signOut" size={20} color={theme.danger} />
+            <Text style={[styles.linkText, { color: theme.danger, fontFamily }]}>Sign out</Text>
+          </TouchableOpacity>
+        </Group>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing[5], paddingBottom: spacing[12] },
-  screenTitle: { fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold, marginBottom: spacing[2] },
-  email: { fontSize: typography.sizes.sm },
-  card: { gap: spacing[3], marginBottom: spacing[4] },
-  goalsCard: { borderColor: 'rgba(22,163,74,0.35)' },
-  sectionLabel: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  goalCardTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold },
-  nudgeText: { fontSize: typography.sizes.sm, lineHeight: 20 },
-  goalTypeLabel: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
-  goalTopRow: { flexDirection: 'row', gap: spacing[3] },
-  goalBigTile: {
-    flex: 1, borderWidth: 1, borderRadius: radius.md,
-    padding: spacing[4], gap: spacing[1],
-  },
-  goalBigTileLabel: { fontSize: typography.sizes.sm },
-  goalBigTileValue: { fontSize: 32, fontWeight: typography.weights.bold, lineHeight: 36 },
-  goalBigTileSub: { fontSize: typography.sizes.xs },
-  splitLine: { fontSize: typography.sizes.xs, textAlign: 'center', marginTop: spacing[1] },
-  row: { flexDirection: 'row', gap: spacing[3] },
-  datePickerWrap: {
-    borderWidth: 1, borderRadius: radius.md,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
-  },
-  fieldLabel: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginTop: spacing[1] },
-  helperText: { fontSize: typography.sizes.xs, lineHeight: 16, marginTop: -spacing[1] },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  pill: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.full, borderWidth: 1 },
-  pillText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium },
-  tiles: { flexDirection: 'row', gap: spacing[3] },
-  tile: { flex: 1, borderRadius: radius.md, borderWidth: 1, padding: spacing[4], alignItems: 'center' },
-  tileValue: { fontSize: typography.sizes.xl, fontWeight: typography.weights.bold },
-  tileLabel: { fontSize: typography.sizes.xs, marginTop: 2, textAlign: 'center' },
-  tileSub: { fontSize: 10, marginTop: 2, textAlign: 'center' },
-  macroLine: { fontSize: typography.sizes.sm, textAlign: 'center' },
+  container: { padding: 20, paddingTop: 12, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  screenTitle: { fontSize: 34, fontWeight: '700', letterSpacing: 0.3 },
+  email: { fontSize: 17, marginTop: 2, marginBottom: 16 },
+  goalsCard: { borderRadius: 26, padding: 18, marginBottom: 20 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  goalCardTitle: { fontSize: 17, fontWeight: '600' },
+  goalTypeLabel: { fontSize: 13, fontWeight: '600' },
+  nudgeText: { fontSize: 15, lineHeight: 21 },
+  calRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  calValue: { fontSize: 44, fontWeight: '700', letterSpacing: 0.3 },
+  calUnit: { fontSize: 17 },
+  bmrLine: { fontSize: 13, marginTop: 4 },
+  macroRow: { flexDirection: 'row' },
+  macroStat: { flex: 1, gap: 2 },
+  macroLabel: { fontSize: 13 },
+  macroValue: { fontSize: 20, fontWeight: '600' },
+  sectionHeader: { fontSize: 13, marginLeft: 16, marginBottom: 6 },
+  sectionFooter: { fontSize: 13, lineHeight: 18, marginHorizontal: 16, marginTop: 8, marginBottom: 20 },
+  group: { borderRadius: 26, overflow: 'hidden' },
+  hairline: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
+  rowItem: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  rowStacked: { flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: 10, gap: 8 },
+  rowLabel: { fontSize: 17 },
+  rowValue: { flex: 1, alignItems: 'flex-end' },
+  rowStackedBody: { alignSelf: 'stretch' },
+  rowInput: { fontSize: 17, textAlign: 'right', minWidth: 120, height: 44, padding: 0 },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  segTrack: { flexDirection: 'row', borderRadius: 9, padding: 2 },
+  segItem: { flex: 1, minHeight: 32, borderRadius: 7, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  segActive: { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+  segText: { fontSize: 13 },
+  primaryBtn: { height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  primaryBtnText: { fontSize: 17, fontWeight: '600' },
+  linkRow: { minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  linkText: { flex: 1, fontSize: 17 },
 });

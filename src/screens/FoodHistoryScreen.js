@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, typography, colors, radius } from '../theme';
-import Card from '../components/Card';
+import { spacing, typography, colors, radius, fontFamily, breakpoints } from '../theme';
+import Icon, { MEAL_ICONS } from '../components/Icon';
 import { useLog, sumEntries, getPreviousDays } from '../store/logStore';
 
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -23,7 +23,7 @@ function scaleFood(entry, newQty) {
   };
 }
 
-function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
+function EntryRow({ entry, date, theme, onUpdate, onDelete, first }) {
   const [editing, setEditing] = useState(false);
   const [fields, setFields] = useState({
     qty: String(entry.quantity_g || 100),
@@ -65,27 +65,32 @@ function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
 
   return (
     <View>
-      <View style={[styles.entryRow, { borderTopColor: theme.border }]}>
+      <View style={[styles.entryRow, !first && { borderTopColor: theme.separator, borderTopWidth: StyleSheet.hairlineWidth, marginLeft: 16, paddingLeft: 0 }]}>
+        {MEAL_ICONS[entry.meal_type] ? (
+          <Icon name={MEAL_ICONS[entry.meal_type]} size={20} color={theme.textSecondary} />
+        ) : null}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.entryName, { color: theme.text }]} numberOfLines={2}>{entry.name}</Text>
-          <Text style={[styles.entrySub, { color: theme.textMuted }]}>
-            {time}{mealLabel ? ` · ${mealLabel}` : ''}{entry.quantity_g ? ` · ${entry.quantity_g}g` : ''}
+          <Text style={[styles.entryName, { color: theme.text, fontFamily }]} numberOfLines={2}>{entry.name}</Text>
+          <Text style={[styles.entrySub, { color: theme.textSecondary, fontFamily }]}>
+            {[entry.quantity_g ? `${entry.quantity_g} g` : '', mealLabel, time].filter(Boolean).join(' · ')}
           </Text>
         </View>
         <View style={styles.entryRight}>
-          <Text style={[styles.entryCal, { color: entry.calories > 0 ? theme.text : colors.carbs }]}>
+          <Text style={[styles.entryCal, { color: entry.calories > 0 ? theme.text : colors.carbs, fontFamily }]}>
             {`${entry.calories} kcal`}
           </Text>
-          <Text style={[styles.entryMacros, { color: theme.textMuted }]}>
+          <Text style={[styles.entryMacros, { color: theme.textSecondary, fontFamily }]}>
             {`P${entry.protein_g}  C${entry.carbs_g}  F${entry.fat_g}`}
           </Text>
         </View>
         <View style={styles.entryActions}>
           <TouchableOpacity
             onPress={() => setEditing(e => !e)}
-            style={[styles.actionBtn, { borderColor: theme.accent }]}
+            style={[styles.actionBtn, { backgroundColor: theme.fill }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${entry.name}`}
           >
-            <Text style={[styles.actionBtnText, { color: theme.accent }]}>Edit</Text>
+            <Text style={[styles.actionBtnText, { color: theme.accent, fontFamily }]}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -98,15 +103,17 @@ function EntryRow({ entry, date, theme, onUpdate, onDelete }) {
                 ]);
               }
             }}
-            style={[styles.actionBtn, { borderColor: colors.red }]}
+            style={[styles.actionBtn, { backgroundColor: theme.fill }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${entry.name}`}
           >
-            <Text style={[styles.actionBtnText, { color: colors.red }]}>✕</Text>
+            <Icon name="trash" size={14} color={theme.danger} />
           </TouchableOpacity>
         </View>
       </View>
 
       {editing && (
-        <View style={[styles.editPanel, { borderTopColor: theme.border, backgroundColor: theme.input }]}>
+        <View style={[styles.editPanel, { backgroundColor: theme.input }]}>
           <View style={styles.editRow}>
             <Text style={[styles.editLabel, { color: theme.textMuted }]}>Qty (g)</Text>
             <TextInput
@@ -157,6 +164,10 @@ export default function FoodHistoryScreen() {
   const { theme } = useTheme();
   const { logs, removeEntry, updateEntry } = useLog();
 
+  const { width } = useWindowDimensions();
+  const bottomPad = width < breakpoints.desktop ? 96 : 40;
+  const [query, setQuery] = useState('');
+
   const days = useMemo(() => getPreviousDays(DAYS_TO_SHOW), []);
 
   const daysWithData = useMemo(() =>
@@ -176,27 +187,42 @@ export default function FoodHistoryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.heading, { color: theme.text }]}>Food History</Text>
-        <Text style={[styles.subheading, { color: theme.textMuted }]}>Last {DAYS_TO_SHOW} days · tap Edit to correct any entry</Text>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]} keyboardShouldPersistTaps="handled">
+        <View style={[styles.searchWrap, { backgroundColor: theme.fill }]}>
+          <Icon name="search" size={16} color={theme.textSecondary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search food history"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Search food history"
+            style={[styles.searchInput, { color: theme.text, fontFamily }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+          />
+        </View>
+        <Text style={[styles.subheading, { color: theme.textSecondary, fontFamily }]}>Last {DAYS_TO_SHOW} days · tap Edit to correct any entry</Text>
 
         {daysWithData.map(date => {
-          const entries = logs[date] || [];
+          const all = logs[date] || [];
+          const q = query.trim().toLowerCase();
+          const entries = q ? all.filter(e => (e.name || '').toLowerCase().includes(q)) : all;
+          if (entries.length === 0) return null;
           const totals = sumEntries(entries);
           const label = new Date(date + 'T00:00:00').toLocaleDateString('en-AU', {
             weekday: 'short', day: 'numeric', month: 'short',
           });
           return (
-            <Card key={date} style={styles.dayCard}>
+            <View key={date}>
               <View style={styles.dayHeader}>
-                <Text style={[styles.dayLabel, { color: theme.text }]}>{label}</Text>
-                <Text style={[styles.dayCals, { color: theme.accent }]}>
+                <Text style={[styles.dayLabel, { color: theme.textSecondary, fontFamily }]}>{label}</Text>
+                <Text style={[styles.dayCals, { color: theme.textSecondary, fontFamily }]}>
                   {`${Math.round(totals.calories)} kcal · P${Math.round(totals.protein)}g C${Math.round(totals.carbs)}g F${Math.round(totals.fat)}g`}
                 </Text>
               </View>
-              {entries.map(entry => (
+              <View style={[styles.dayCard, { backgroundColor: theme.card }]}>
+              {entries.map((entry, i) => (
                 <EntryRow
                   key={entry.id}
+                  first={i === 0}
                   entry={entry}
                   date={date}
                   theme={theme}
@@ -204,7 +230,8 @@ export default function FoodHistoryScreen() {
                   onDelete={removeEntry}
                 />
               ))}
-            </Card>
+              </View>
+            </View>
           );
         })}
       </ScrollView>
@@ -213,30 +240,31 @@ export default function FoodHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing[4], paddingBottom: spacing[12] },
-  heading: { fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing[1] },
-  subheading: { fontSize: typography.sizes.sm, marginBottom: spacing[4] },
+  container: { padding: 20, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, borderRadius: 10, paddingHorizontal: 12 },
+  searchInput: { flex: 1, fontSize: 17, height: 44, padding: 0 },
+  subheading: { fontSize: 13, marginTop: 8, marginBottom: 12, marginLeft: 4 },
 
-  dayCard: { marginBottom: spacing[3] },
-  dayHeader: { marginBottom: spacing[2] },
-  dayLabel: { fontSize: typography.sizes.base, fontWeight: typography.weights.bold },
-  dayCals: { fontSize: typography.sizes.xs, marginTop: 2 },
+  dayCard: { borderRadius: 26, overflow: 'hidden', marginBottom: 20 },
+  dayHeader: { marginBottom: 6, marginLeft: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginRight: 16 },
+  dayLabel: { fontSize: 13, fontWeight: '600' },
+  dayCals: { fontSize: 13 },
 
   entryRow: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    paddingTop: spacing[3], borderTopWidth: 1, gap: spacing[2],
+    flexDirection: 'row', alignItems: 'center', minHeight: 56,
+    paddingVertical: 8, paddingHorizontal: 16, gap: spacing[3],
   },
-  entryName: { fontSize: typography.sizes.sm, fontWeight: typography.weights.medium },
-  entrySub: { fontSize: typography.sizes.xs, marginTop: 2 },
+  entryName: { fontSize: 17 },
+  entrySub: { fontSize: 13, marginTop: 2 },
   entryRight: { alignItems: 'flex-end', minWidth: 80 },
-  entryCal: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold },
-  entryMacros: { fontSize: 10, marginTop: 2 },
+  entryCal: { fontSize: 15, fontWeight: '600' },
+  entryMacros: { fontSize: 11, marginTop: 2 },
   entryActions: { flexDirection: 'row', gap: spacing[1] },
-  actionBtn: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[2], paddingVertical: 3 },
+  actionBtn: { borderRadius: radius.sm, paddingHorizontal: spacing[2], minHeight: 28, alignItems: 'center', justifyContent: 'center' },
   actionBtnText: { fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold },
 
   editPanel: {
-    borderTopWidth: 1, marginTop: spacing[2],
+    marginHorizontal: 12, marginBottom: 12,
     padding: spacing[3], borderRadius: radius.md, gap: spacing[3],
   },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
@@ -258,7 +286,7 @@ const styles = StyleSheet.create({
   },
   editActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   saveBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.sm },
-  saveBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#000' },
+  saveBtnText: { fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#fff' },
   cancelText: { fontSize: typography.sizes.sm },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },

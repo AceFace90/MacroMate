@@ -8,7 +8,7 @@ export default function FoodResultRow({ item, onSelect, theme }) {
     <TouchableOpacity style={styles.resultRow} onPress={() => onSelect(item)} activeOpacity={0.7}>
       <View style={{ flex: 1 }}>
         <Text style={[styles.resultName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-        <Text style={[styles.resultMacros, { color: theme.textMuted }]}>
+        <Text style={[styles.resultMacros, { color: theme.textSecondary }]}>
           P {item.protein_g ?? 0}g · C {item.carbs_g ?? 0}g · F {item.fat_g ?? 0}g
           {isAI ? <Text style={{ color: colors.fat }}> · AI estimate</Text> : null}
         </Text>
@@ -24,6 +24,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3], paddingHorizontal: spacing[4],
   },
   resultName: { fontSize: typography.sizes.base, fontWeight: typography.weights.medium },
-  resultMacros: { fontSize: typography.sizes.xs, marginTop: 2 },
+  resultMacros: { fontSize: 13, marginTop: 2 },
   resultCal: { fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginLeft: spacing[3] },
 });

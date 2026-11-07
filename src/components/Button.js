@@ -1,72 +1,55 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
-import { radius, spacing, typography } from '../theme';
+import { spacing, typography, fontFamily } from '../theme';
 
-// Ported from GymMate src/components/Button.js (shared design kit).
-// variant: 'primary' | 'secondary' | 'ghost' | 'danger'
-export default function Button({ onPress, title, children, variant = 'primary', size = 'md', loading, disabled, style }) {
+// iOS-style button. variant: 'primary' (filled) | 'secondary' (tinted fill) | 'ghost' | 'danger'.
+// Optional `icon` (element) renders before the title.
+export default function Button({ onPress, title, children, variant = 'primary', size = 'md', loading, disabled, style, icon }) {
   const { theme } = useTheme();
 
   const bgColor = {
     primary: theme.accent,
-    secondary: theme.card,
+    secondary: theme.fill,
     ghost: 'transparent',
-    danger: '#ef4444',
+    danger: theme.danger,
   }[variant];
 
   const textColor = {
-    primary: theme.isDark ? '#000' : '#fff',
-    secondary: theme.text,
+    primary: theme.accentContrast,
+    secondary: theme.accent,
     ghost: theme.accent,
     danger: '#fff',
   }[variant];
 
-  const borderColor = {
-    primary: 'transparent',
-    secondary: theme.border,
-    ghost: 'transparent',
-    danger: 'transparent',
-  }[variant];
+  const dims = size === 'sm' ? { minHeight: 36, paddingHorizontal: spacing[3], borderRadius: 10 }
+    : size === 'lg' ? { minHeight: 54, paddingHorizontal: spacing[6], borderRadius: 14 }
+    : { minHeight: 50, paddingHorizontal: spacing[5], borderRadius: 12 };
 
-  const pad = size === 'sm' ? { paddingVertical: spacing[2], paddingHorizontal: spacing[3] } :
-              size === 'lg' ? { paddingVertical: spacing[4], paddingHorizontal: spacing[6] } :
-                              { paddingVertical: spacing[3], paddingHorizontal: spacing[5] };
-
-  const fontSize = size === 'sm' ? typography.sizes.sm : size === 'lg' ? typography.sizes.lg : typography.sizes.base;
+  const fontSize = size === 'sm' ? typography.sizes.sm : 17;
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.75}
-      style={[
-        styles.btn,
-        pad,
-        { backgroundColor: bgColor, borderColor, opacity: disabled ? 0.5 : 1 },
-        style,
-      ]}
+      activeOpacity={0.7}
+      style={[styles.btn, dims, { backgroundColor: bgColor, opacity: disabled ? 0.45 : 1 }, style]}
     >
       {loading ? (
         <ActivityIndicator color={textColor} size="small" />
       ) : (
-        <Text style={[styles.text, { color: textColor, fontSize, fontWeight: typography.weights.semibold }]}>
-          {title ?? children}
-        </Text>
+        <>
+          {icon}
+          <Text style={[styles.text, { color: textColor, fontSize, fontFamily, fontWeight: '600' }]}>
+            {title ?? children}
+          </Text>
+        </>
       )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  btn: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  text: {
-    textAlign: 'center',
-  },
+  btn: { alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  text: { textAlign: 'center' },
 });

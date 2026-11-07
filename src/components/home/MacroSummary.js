@@ -1,26 +1,21 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
-import { spacing, typography } from '../../theme';
+import { StyleSheet } from 'react-native';
 import Card from '../Card';
 import ActivityRings from '../ActivityRings';
 
-export default function MacroSummary({ rings, totals, targets, calRemaining, theme }) {
+export default function MacroSummary({ rings, totals, targets, calRemaining }) {
   return (
-    <Card accent style={styles.ringsCard}>
+    <Card style={styles.ringsCard}>
       <ActivityRings
         rings={rings}
-        size={180}
+        size={190}
         centerLabel={`${Math.round(totals.calories)}`}
         centerSub={`/ ${targets.calories} kcal`}
       />
-      <Text style={[styles.calLabel, { color: theme.textMuted }]}>
-        {calRemaining >= 0 ? `${calRemaining} kcal remaining` : `${Math.abs(calRemaining)} kcal over`}
-      </Text>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  ringsCard: { alignItems: 'center', gap: spacing[3], marginBottom: spacing[4] },
-  calLabel: { fontSize: typography.sizes.sm, textAlign: 'center' },
+  ringsCard: { alignItems: 'center' },
 });

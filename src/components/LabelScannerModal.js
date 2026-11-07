@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, typography } from '../theme';
+import { spacing, typography, fontFamily } from '../theme';
+import Icon from './Icon';
 import gemini from '../services/gemini';
 
 // Converts a uri to base64. Web: fetch + FileReader. Native: expo-file-system.
@@ -25,6 +26,7 @@ async function uriToBase64(uri) {
 }
 
 function WebImagePicker({ onImage, onError }) {
+  const { theme } = useTheme();
   const inputRef = useRef(null);
 
   const handleChange = async (e) => {
@@ -53,14 +55,15 @@ function WebImagePicker({ onImage, onError }) {
         style={styles.pickBtn}
         onPress={() => inputRef.current?.click()}
       >
-        <Text style={styles.pickIcon}>📷</Text>
-        <Text style={styles.pickLabel}>Take photo or choose image</Text>
+        <View style={[styles.pickIcon, { backgroundColor: theme.fill }]}><Icon name="camera" size={36} color={theme.accent} /></View>
+        <Text style={[styles.pickLabel, { color: theme.textSecondary }]}>Take photo or choose image</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function NativeImagePicker({ onImage, onError }) {
+  const { theme } = useTheme();
   const handlePress = async () => {
     try {
       let CameraView, useCameraPermissions;
@@ -98,8 +101,8 @@ function NativeImagePicker({ onImage, onError }) {
   return (
     <View style={styles.centered}>
       <TouchableOpacity style={styles.pickBtn} onPress={handlePress}>
-        <Text style={styles.pickIcon}>📷</Text>
-        <Text style={styles.pickLabel}>Take photo or choose image</Text>
+        <View style={[styles.pickIcon, { backgroundColor: theme.fill }]}><Icon name="camera" size={36} color={theme.accent} /></View>
+        <Text style={[styles.pickLabel, { color: theme.textSecondary }]}>Take photo or choose image</Text>
       </TouchableOpacity>
     </View>
   );
@@ -169,8 +172,14 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Scan Label</Text>
-          <TouchableOpacity onPress={handleClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={[styles.closeBtn, { color: theme.accent }]}>Close</Text>
+          <TouchableOpacity
+            onPress={handleClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={[styles.closeBtn, { backgroundColor: theme.fill }]}
+          >
+            <Icon name="close" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -194,11 +203,11 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
                 Looks good? Gemini will read the nutrition panel.
               </Text>
               <View style={styles.btnRow}>
-                <TouchableOpacity style={[styles.secondaryBtn, { borderColor: theme.border }]} onPress={reset}>
-                  <Text style={[styles.secondaryBtnText, { color: theme.textMuted }]}>Retake</Text>
+                <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.fill }]} onPress={reset}>
+                  <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>Retake</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={analyze}>
-                  <Text style={styles.primaryBtnText}>Analyse</Text>
+                  <Text style={[styles.primaryBtnText, { color: theme.accentContrast }]}>Analyse</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -221,7 +230,7 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
                   {`Per serving: ${result.serving_size_display}`}
                 </Text>
               )}
-              <View style={[styles.macroGrid, { borderColor: theme.border }]}>
+              <View style={[styles.macroGrid, { backgroundColor: theme.card }]}>
                 {[
                   ['Calories', result.calories, 'kcal'],
                   ['Protein', result.protein_g, 'g'],
@@ -230,23 +239,26 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
                   ['Fiber', result.fiber_g, 'g'],
                   ['Sodium', result.sodium_mg, 'mg'],
                 ].map(([label, val, unit]) => (
-                  <View key={label} style={[styles.macroCell, { borderColor: theme.border }]}>
+                  <View key={label} style={styles.macroCell}>
                     <Text style={[styles.macroVal, { color: theme.text }]}>{`${val ?? 0}${unit}`}</Text>
                     <Text style={[styles.macroLabel, { color: theme.textMuted }]}>{label}</Text>
                   </View>
                 ))}
               </View>
               {result.confidence_score < 70 && (
-                <Text style={[styles.confidence, { color: theme.textMuted }]}>
-                  {`⚠ Low confidence (${result.confidence_score}%) — check values before logging.`}
-                </Text>
+                <View style={styles.confRow}>
+                  <Icon name="warning" size={14} color={theme.danger} />
+                  <Text style={[styles.confidence, { color: theme.textSecondary }]}>
+                    {`Low confidence (${result.confidence_score}%) — check values before logging.`}
+                  </Text>
+                </View>
               )}
               <View style={styles.btnRow}>
-                <TouchableOpacity style={[styles.secondaryBtn, { borderColor: theme.border }]} onPress={reset}>
-                  <Text style={[styles.secondaryBtnText, { color: theme.textMuted }]}>Rescan</Text>
+                <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.fill }]} onPress={reset}>
+                  <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>Rescan</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleLog}>
-                  <Text style={styles.primaryBtnText}>Log this</Text>
+                  <Text style={[styles.primaryBtnText, { color: theme.accentContrast }]}>Log this</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -256,7 +268,7 @@ export default function LabelScannerModal({ visible, onClose, onFound, geminiKey
             <View style={styles.centered}>
               <Text style={[styles.errorText, { color: theme.text }]}>{errorMsg}</Text>
               <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={reset}>
-                <Text style={styles.primaryBtnText}>Try Again</Text>
+                <Text style={[styles.primaryBtnText, { color: theme.accentContrast }]}>Try Again</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -272,33 +284,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing[5], paddingVertical: spacing[4],
   },
-  title: { fontSize: typography.sizes.xl, fontWeight: '700' },
-  closeBtn: { fontSize: typography.sizes.base, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: '700', fontFamily },
+  closeBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, padding: spacing[5] },
   hint: { fontSize: typography.sizes.sm, textAlign: 'center', marginBottom: spacing[4] },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[4] },
   pickBtn: { alignItems: 'center', gap: spacing[2] },
-  pickIcon: { fontSize: 48 },
-  pickLabel: { fontSize: typography.sizes.base, fontWeight: '600', color: '#888' },
-  preview: { width: '100%', height: 260, borderRadius: 12 },
+  pickIcon: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
+  pickLabel: { fontSize: typography.sizes.base, fontWeight: '600' },
+  preview: { width: '100%', height: 260, borderRadius: 20 },
   btnRow: { flexDirection: 'row', gap: spacing[3], width: '100%' },
-  primaryBtn: { flex: 1, borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center' },
-  primaryBtnText: { fontSize: typography.sizes.base, fontWeight: '700', color: '#000' },
-  secondaryBtn: { flex: 1, borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center', borderWidth: 1 },
-  secondaryBtnText: { fontSize: typography.sizes.base, fontWeight: '600' },
+  primaryBtn: { flex: 1, borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
+  primaryBtnText: { fontSize: 17, fontWeight: '600' },
+  secondaryBtn: { flex: 1, borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
+  secondaryBtnText: { fontSize: 17, fontWeight: '600' },
   resultContainer: { gap: spacing[3] },
   resultName: { fontSize: typography.sizes.lg, fontWeight: '700', textAlign: 'center' },
   serving: { fontSize: typography.sizes.sm, textAlign: 'center' },
   macroGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    borderWidth: 1, borderRadius: 10, overflow: 'hidden',
+    borderRadius: 20, overflow: 'hidden',
   },
   macroCell: {
-    width: '33.33%', padding: spacing[3], alignItems: 'center',
-    borderRightWidth: 1, borderBottomWidth: 1,
+    width: '33.33%', padding: spacing[4], alignItems: 'center',
   },
   macroVal: { fontSize: typography.sizes.base, fontWeight: '700' },
   macroLabel: { fontSize: typography.sizes.xs, marginTop: 2 },
+  confRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   confidence: { fontSize: typography.sizes.xs, textAlign: 'center' },
   errorText: { fontSize: typography.sizes.base, textAlign: 'center' },
 });

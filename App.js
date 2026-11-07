@@ -11,6 +11,12 @@ import { getSession, onAuthChange } from './src/services/auth';
 import LoginScreen from './src/screens/LoginScreen';
 import AppNavigator from './src/navigation/AppNavigator';
 
+// Dev-only: ?theme=light|dark forces the stored theme preference (for screenshots).
+if (__DEV__ && typeof window !== 'undefined') {
+  const t = new URLSearchParams(window.location?.search || '').get('theme');
+  if (t === 'light' || t === 'dark') window.localStorage?.setItem('macromate_theme_preference', t);
+}
+
 function AuthedApp({ session }) {
   const { profile, targets, refresh } = useProfile(session);
   return (
@@ -26,6 +32,13 @@ function Root() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Dev-only: http://localhost:8082/?preview renders the app with a fake local session
+    // so screens can be checked (and screenshotted) without Google sign-in. Stripped from prod builds.
+    if (__DEV__ && typeof window !== 'undefined' && window.location?.search?.includes('preview')) {
+      setSession({ user: { id: '00000000-0000-0000-0000-000000000000', email: 'preview@localhost' }, preview: true });
+      setReady(true);
+      return;
+    }
     getSession().then(s => { setSession(s); setReady(true); });
     const unsub = onAuthChange(s => setSession(s));
     return unsub;

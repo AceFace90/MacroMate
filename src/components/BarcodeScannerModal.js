@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, typography } from '../theme';
+import { spacing, typography, fontFamily } from '../theme';
+import Icon from './Icon';
 import { getProductByBarcode } from '../services/openFoodFactsAPI';
 import { searchByBarcode as openNutritionByBarcode } from '../services/openNutritionSearch';
 import { BrowserMultiFormatReader } from '@zxing/browser';
@@ -82,7 +83,7 @@ function WebBarcodeScanner({ onDetected, onError }) {
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         ref={videoRef}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 20 }}
         playsInline
         muted
       />
@@ -104,7 +105,7 @@ function NativeBarcodeScanner({ onDetected }) {
   if (!permission?.granted) {
     return (
       <TouchableOpacity onPress={requestPermission} style={[styles.permBtn, { backgroundColor: theme.accent }]}>
-        <Text style={[styles.permBtnText, { color: '#000' }]}>Allow Camera Access</Text>
+        <Text style={[styles.permBtnText, { color: theme.accentContrast }]}>Allow Camera Access</Text>
       </TouchableOpacity>
     );
   }
@@ -184,8 +185,14 @@ export default function BarcodeScannerModal({ visible, onClose, onFound }) {
       <SafeAreaView style={[styles.modal, { backgroundColor: theme.bg }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Scan Barcode</Text>
-          <TouchableOpacity onPress={handleClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={[styles.closeBtn, { color: theme.accent }]}>Close</Text>
+          <TouchableOpacity
+            onPress={handleClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={[styles.closeBtn, { backgroundColor: theme.fill }]}
+          >
+            <Icon name="close" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -213,7 +220,7 @@ export default function BarcodeScannerModal({ visible, onClose, onFound }) {
             <View style={styles.centered}>
               <Text style={[styles.errorText, { color: theme.text }]}>{errorMsg}</Text>
               <TouchableOpacity style={[styles.retryBtn, { backgroundColor: theme.accent }]} onPress={reset}>
-                <Text style={[styles.retryBtnText, { color: '#000' }]}>Try Again</Text>
+                <Text style={[styles.retryBtnText, { color: theme.accentContrast }]}>Try Again</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -229,12 +236,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing[5], paddingVertical: spacing[4],
   },
-  title: { fontSize: typography.sizes.xl, fontWeight: '700' },
-  closeBtn: { fontSize: typography.sizes.base, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: '700', fontFamily },
+  closeBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, padding: spacing[5] },
   hint: { fontSize: typography.sizes.sm, textAlign: 'center', marginBottom: spacing[4] },
-  webCameraContainer: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', position: 'relative' },
-  nativeCameraContainer: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', position: 'relative' },
+  webCameraContainer: { width: '100%', aspectRatio: 1, borderRadius: 20, overflow: 'hidden', position: 'relative' },
+  nativeCameraContainer: { width: '100%', aspectRatio: 1, borderRadius: 20, overflow: 'hidden', position: 'relative' },
   scanOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   scanFrame: {
     width: '60%', aspectRatio: 1,
@@ -244,8 +251,8 @@ const styles = StyleSheet.create({
   },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[4] },
   errorText: { fontSize: typography.sizes.base, textAlign: 'center' },
-  retryBtn: { borderRadius: 10, paddingVertical: spacing[3], paddingHorizontal: spacing[6] },
-  retryBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
-  permBtn: { borderRadius: 10, paddingVertical: spacing[3], alignItems: 'center' },
-  permBtnText: { fontSize: typography.sizes.base, fontWeight: '700' },
+  retryBtn: { borderRadius: 12, height: 50, justifyContent: 'center', paddingHorizontal: spacing[6] },
+  retryBtnText: { fontSize: 17, fontWeight: '600' },
+  permBtn: { borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
+  permBtnText: { fontSize: 17, fontWeight: '600' },
 });
