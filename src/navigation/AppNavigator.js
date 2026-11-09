@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -82,12 +82,15 @@ export default function AppNavigator({ session, targets, onTargetsChange }) {
 
   const tabBarStyle = desktop
     ? {
-        width: 232,
+        // Floating rounded card, like LabMate's sidebar
+        width: 248,
+        margin: 12,
         backgroundColor: theme.card,
-        borderRightColor: theme.border,
-        borderRightWidth: 1,
-        paddingTop: spacing[6],
-        paddingHorizontal: spacing[3],
+        borderRadius: 26,
+        borderWidth: 0,
+        borderRightWidth: 0,
+        paddingTop: 64,
+        paddingHorizontal: 10,
       }
     : {
         position: 'absolute',
@@ -101,6 +104,7 @@ export default function AppNavigator({ session, targets, onTargetsChange }) {
       };
 
   return (
+    <View style={{ flex: 1 }}>
     <NavigationContainer theme={navTheme} linking={{ enabled: false }}>
       <Tab.Navigator
         initialRouteName={DEV_TAB}
@@ -110,15 +114,15 @@ export default function AppNavigator({ session, targets, onTargetsChange }) {
           tabBarVariant: 'uikit',
           tabBarLabelPosition: desktop ? 'beside-icon' : 'below-icon',
           tabBarStyle,
-          tabBarItemStyle: desktop ? { borderRadius: 10, height: 44, justifyContent: 'flex-start', paddingHorizontal: spacing[3] } : undefined,
-          tabBarActiveTintColor: theme.accent,
-          tabBarInactiveTintColor: theme.textSecondary,
-          tabBarActiveBackgroundColor: desktop ? theme.accentBg : undefined,
+          tabBarItemStyle: desktop ? { borderRadius: 12, height: 44, marginBottom: 2, justifyContent: 'flex-start', paddingHorizontal: 12 } : undefined,
+          tabBarActiveTintColor: desktop ? theme.accentContrast : theme.accent,
+          tabBarInactiveTintColor: desktop ? theme.text : theme.textSecondary,
+          tabBarActiveBackgroundColor: desktop ? theme.accent : undefined,
           tabBarLabel: TABS[route.name]?.label,
           tabBarLabelStyle: desktop
-            ? { fontSize: typography.sizes.base, fontWeight: '600', fontFamily, marginLeft: spacing[3] }
+            ? { fontSize: 15, fontWeight: '500', fontFamily, marginLeft: 12 }
             : { fontSize: 10, fontWeight: '600', fontFamily },
-          tabBarIcon: ({ color }) => <Icon name={TABS[route.name]?.icon} size={desktop ? 20 : 24} color={color} />,
+          tabBarIcon: ({ color, focused }) => <Icon name={TABS[route.name]?.icon} size={desktop ? 20 : 24} color={desktop && !focused ? theme.accent : color} />,
           sceneStyle: { backgroundColor: theme.bg },
         })}
       >
@@ -130,5 +134,12 @@ export default function AppNavigator({ session, targets, onTargetsChange }) {
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
     </NavigationContainer>
+    {desktop ? (
+      <Text
+        pointerEvents="none"
+        style={{ position: 'absolute', top: 32, left: 34, fontSize: 22, fontWeight: '700', color: theme.text, fontFamily }}
+      >MacroMate</Text>
+    ) : null}
+    </View>
   );
 }

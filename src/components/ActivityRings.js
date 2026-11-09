@@ -39,10 +39,10 @@ export default function ActivityRings({ rings, size = 180, stroke = 16, gap = 5,
           </G>
         </Svg>
         {centerLabel != null && (
-          <View style={[styles.center, { width: size, height: size }]} pointerEvents="none">
-            <Text style={[styles.centerLabel, { color: theme.text, fontFamily }]}>{centerLabel}</Text>
+          <View style={[styles.center, { width: size, height: size, paddingHorizontal: size * 0.5 - (size / 2 - stroke / 2 - (rings.length - 1) * (stroke + gap) - stroke / 2) }]} pointerEvents="none">
+            <Text style={[styles.centerLabel, { color: theme.text, fontFamily }]} numberOfLines={1} adjustsFontSizeToFit>{centerLabel}</Text>
             {centerSub != null && (
-              <Text style={[styles.centerSub, { color: theme.textSecondary, fontFamily }]}>{centerSub}</Text>
+              <Text style={[styles.centerSub, { color: theme.textSecondary, fontFamily }]} numberOfLines={1}>{centerSub}</Text>
             )}
           </View>
         )}
@@ -69,8 +69,8 @@ export default function ActivityRings({ rings, size = 180, stroke = 16, gap = 5,
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', alignSelf: 'stretch', gap: 16 },
   center: { position: 'absolute', top: 0, left: 0, justifyContent: 'center', alignItems: 'center' },
-  centerLabel: { fontSize: 34, fontWeight: typography.weights.bold },
-  centerSub: { fontSize: 13, marginTop: 0 },
+  centerLabel: { fontSize: 30, fontWeight: typography.weights.bold },
+  centerSub: { fontSize: 12, marginTop: 0 },
   chips: { flexDirection: 'row', gap: 8, alignSelf: 'stretch' },
   chip: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12 },
   dot: { width: 8, height: 8, borderRadius: 99 },

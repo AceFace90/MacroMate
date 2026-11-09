@@ -8,7 +8,9 @@ export default function MacroSummary({ rings, totals, targets, calRemaining }) {
     <Card style={styles.ringsCard}>
       <ActivityRings
         rings={rings}
-        size={190}
+        size={210}
+        stroke={14}
+        gap={4}
         centerLabel={`${Math.round(totals.calories)}`}
         centerSub={`/ ${targets.calories} kcal`}
       />

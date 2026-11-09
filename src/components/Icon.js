@@ -20,6 +20,20 @@ const G = {
       <Rect fill={c} x="16.5" y="3" width="4.5" height="18" rx="1.2" />
     </>
   ),
+  // Lightning bolt — streak
+  bolt: (c) => (
+    <Path fill={c} d="M13.6 2 4.5 13.4c-.4.5 0 1.2.6 1.2H10l-1.2 6.9c-.1.7.8 1 1.2.4l9.1-11.4c.4-.5 0-1.2-.6-1.2H14l1.2-6.9c.1-.7-.8-1-1.2-.4L13.6 2Z" />
+  ),
+  // Drumstick — protein
+  drumstick: (c) => (
+    <>
+      <Circle fill={c} cx="15" cy="9" r="7.5" />
+      <Path fill={c} d="M7 17 L7.5 8.6 L15.4 16.5 Z" />
+      <Path d="M7.5 16.5 L4.8 19.2" stroke={c} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <Circle fill={c} cx="3.6" cy="17.6" r="2.1" />
+      <Circle fill={c} cx="6.4" cy="20.4" r="2.1" />
+    </>
+  ),
   person: (c) => (
     <Path fill={c} fillRule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 11.5c-2.7 0-5 1.2-6.2 3.1A7.9 7.9 0 0 0 12 20c2.5 0 4.7-1.3 6.2-3.4-1.2-1.9-3.5-3.1-6.2-3.1ZM12 5.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
   ),

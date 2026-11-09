@@ -216,9 +216,9 @@ export default function ProgressScreen() {
           <>
             <View style={styles.chips}>
               <Chip theme={theme} width={chipW} title="Avg calories" value={`${avg.calories.toLocaleString()} kcal`} icon="flame" iconColor={colors.calories} />
-              <Chip theme={theme} width={chipW} title="Avg protein" value={`${avg.protein} g`} icon="chart" iconColor={colors.protein} />
+              <Chip theme={theme} width={chipW} title="Avg protein" value={`${avg.protein} g`} icon="drumstick" iconColor={colors.protein} />
               <Chip theme={theme} width={chipW} title="Days logged" value={`${loggedCount} of ${range}`} icon="check" iconColor={theme.accent} />
-              <Chip theme={theme} width={chipW} title="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} icon="flame" iconColor={colors.carbs} />
+              <Chip theme={theme} width={chipW} title="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} icon="bolt" iconColor={colors.carbs} />
             </View>
 
             <Card theme={theme}>

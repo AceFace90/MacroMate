@@ -14,7 +14,7 @@ import Icon from '../components/Icon';
 const UNITS_KEY = 'macromate_units';
 
 const THEME_OPTIONS = [
-  { key: 'system', label: 'Auto' },
+  { key: 'system', label: 'System', icon: 'phone' },
   { key: 'light',  label: 'Light', icon: 'sun' },
   { key: 'dark',   label: 'Dark',  icon: 'moon' },
 ];
@@ -55,7 +55,7 @@ function Section({ title, footer, children }) {
   const { theme } = useTheme();
   return (
     <View style={styles.section}>
-      {title ? <Text style={[styles.sectionHeader, { color: theme.textSecondary, fontFamily }]}>{title}</Text> : null}
+      {title ? <Text style={[styles.sectionHeader, { color: theme.textSecondary, fontFamily }]}>{title.toUpperCase()}</Text> : null}
       <View style={[styles.group, { backgroundColor: theme.card }]}>{children}</View>
       {footer ? <View style={styles.footerWrap}>{footer}</View> : null}
     </View>
@@ -125,9 +125,13 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <View style={styles.inner}>
           <Text style={[styles.title, { color: theme.text, fontFamily }]} accessibilityRole="header">Settings</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily }]}>Your profile, appearance and account.</Text>
 
           {/* ACCOUNT */}
-          <Section>
+          <Section
+            title="Account"
+            footer={<Text style={[styles.footer, { color: theme.textSecondary, fontFamily }]}>Your data syncs to this account and is available on any device you sign into.</Text>}
+          >
             <Row style={styles.accountRow}>
               <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
                 <Text style={[styles.avatarText, { color: theme.accentContrast, fontFamily }]}>{initial}</Text>
@@ -147,9 +151,13 @@ export default function SettingsScreen() {
 
           {/* APPEARANCE */}
           <Section title="Appearance">
-            <Row last style={styles.segRow}>
-              <Segmented options={THEME_OPTIONS} value={preference} onSelect={setTheme} />
-            </Row>
+            {THEME_OPTIONS.map((o, i) => (
+              <Row key={o.key} last={i === THEME_OPTIONS.length - 1} onPress={() => setTheme(o.key)} accessibilityLabel={o.label}>
+                <Icon name={o.icon} size={20} color={theme.accent} />
+                <Text style={[styles.rowLabel, { flex: 1, color: theme.text, fontFamily }]}>{o.label}</Text>
+                {preference === o.key ? <Icon name="check" size={20} color={theme.accent} /> : null}
+              </Row>
+            ))}
           </Section>
 
           {/* UNITS */}
@@ -241,9 +249,10 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container:     { paddingHorizontal: 20, paddingTop: 8 },
   inner:         { width: '100%', maxWidth: 720, alignSelf: 'center' },
-  title:         { fontSize: 34, fontWeight: '700', marginBottom: 16, marginTop: 8 },
+  title:         { fontSize: 34, fontWeight: '700', marginTop: 8 },
+  subtitle:      { fontSize: 15, marginTop: 2, marginBottom: 16 },
   section:       { marginBottom: 24 },
-  sectionHeader: { fontSize: 13, marginLeft: 16, marginBottom: 6 },
+  sectionHeader: { fontSize: 13, letterSpacing: 0.3, marginLeft: 16, marginBottom: 6 },
   group:         { borderRadius: 26, overflow: 'hidden' },
   footerWrap:    { marginTop: 6, paddingHorizontal: 16 },
   footer:        { fontSize: 13, lineHeight: 18 },
