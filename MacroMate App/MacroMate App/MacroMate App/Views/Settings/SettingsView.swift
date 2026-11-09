@@ -60,13 +60,31 @@ struct SettingsView: View {
         return s.isEmpty ? "M" : s
     }
 
+    private var initialsAvatar: some View {
+        Text(initials)
+            .font(.title2.weight(.semibold)).foregroundStyle(.white)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(MacroColor.calories.gradient)
+    }
+
+    /// Google profile photo when signed in; initials while loading or if there's no photo.
+    @ViewBuilder private var avatar: some View {
+        if let url = store.user?.photoURL {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image { image.resizable().scaledToFill() }
+                else { initialsAvatar }
+            }
+        } else {
+            initialsAvatar
+        }
+    }
+
     private var accountSection: some View {
         Section {
             HStack(spacing: 14) {
-                Text(initials)
-                    .font(.title2.weight(.semibold)).foregroundStyle(.white)
+                avatar
                     .frame(width: 56, height: 56)
-                    .background(MacroColor.calories.gradient, in: .circle)
+                    .clipShape(.circle)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.user?.displayName ?? store.profile.name ?? "MacroMate").font(.title3.weight(.bold))
