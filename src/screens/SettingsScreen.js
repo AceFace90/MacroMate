@@ -90,6 +90,7 @@ function ValueRow({ label, value, last }) {
   );
 }
 
+const PRIVACY_URL = 'https://aceface90.github.io/MacroMate/privacy.html';
 const AFCD_URL = 'https://www.foodstandards.gov.au/science-data/food-nutrient-databases/afcd';
 
 export default function SettingsScreen() {
@@ -225,8 +226,11 @@ export default function SettingsScreen() {
             <ValueRow
               label="Companion apps"
               value={<>{link('GymMate', 'https://aceface90.github.io/GymMate/')}{' · '}{link('LabMate', 'https://aceface90.github.io/LabMate/')}</>}
-              last
             />
+            <Row last onPress={() => Linking.openURL(PRIVACY_URL)} accessibilityLabel="Privacy Policy" accessibilityRole="link">
+              <Text style={[styles.rowLabel, { color: theme.text, fontFamily, flex: 1 }]}>Privacy Policy</Text>
+              <Icon name="chevronRight" size={16} color={theme.textSecondary} />
+            </Row>
           </Section>
 
           {/* DATA SOURCES */}
