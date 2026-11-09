@@ -31,6 +31,19 @@ function Root() {
   const [session, setSession] = useState(null);
   const [ready, setReady] = useState(false);
 
+  // Web: visible keyboard focus ring (mouse clicks don't trigger :focus-visible). !important wins over
+  // the inline `outlineStyle: 'none'` still set on text inputs.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    let el = document.getElementById('mm-focus-ring');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'mm-focus-ring';
+      document.head.appendChild(el);
+    }
+    el.textContent = `:focus-visible { outline: 2px solid ${theme.accent} !important; outline-offset: 2px; }`;
+  }, [theme.accent]);
+
   useEffect(() => {
     // Dev-only: http://localhost:8082/?preview renders the app with a fake local session
     // so screens can be checked (and screenshotted) without Google sign-in. Stripped from prod builds.

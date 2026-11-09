@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { fontFamily } from '../../theme';
-import { formatDateLabel } from '../../utils/dateUtils';
 import Icon from '../Icon';
+
+// The screen title already says Today / the weekday, so the stepper shows the calendar date.
+const dateText = (d) =>
+  new Date(d + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
 
 // iOS-style day stepper: chevron buttons either side of the date label.
 export default function DayNavigator({ viewDate, isToday, onPrev, onNext, theme }) {
@@ -11,7 +14,7 @@ export default function DayNavigator({ viewDate, isToday, onPrev, onNext, theme 
       <TouchableOpacity onPress={onPrev} style={[styles.btn, { backgroundColor: theme.card }]} accessibilityLabel="Previous day" accessibilityRole="button">
         <Icon name="chevronLeft" size={18} color={theme.accent} />
       </TouchableOpacity>
-      <Text style={[styles.label, { color: theme.text, fontFamily }]}>{formatDateLabel(viewDate)}</Text>
+      <Text style={[styles.label, { color: theme.text, fontFamily }]}>{dateText(viewDate)}</Text>
       <TouchableOpacity
         onPress={onNext}
         disabled={isToday}

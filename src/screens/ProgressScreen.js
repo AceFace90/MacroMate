@@ -195,7 +195,6 @@ export default function ProgressScreen() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
-        showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">Trends</Text>

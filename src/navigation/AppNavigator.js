@@ -32,6 +32,9 @@ function TodayStackNav() {
   return (
     <TodayStack.Navigator
       screenOptions={({ navigation }) => ({
+        // 'float' turns off react-navigation/stack's web "page mode" (card = minHeight:100%), which let the
+        // card grow past the viewport so HomeScreen's ScrollView was unbounded and the page couldn't scroll.
+        headerMode: 'float',
         headerStyle: { backgroundColor: theme.bg, borderBottomWidth: 0, shadowOpacity: 0, elevation: 0 },
         headerShadowVisible: false,
         headerTintColor: theme.accent,
@@ -104,7 +107,6 @@ function FloatingTabBar({ state, descriptors, navigation }) {
                 justifyContent: 'center',
                 gap: 3,
                 backgroundColor: focused ? theme.accentBg : 'transparent',
-                ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : null),
               }}
             >
               <Icon name={tab?.icon} size={24} color={color} />
