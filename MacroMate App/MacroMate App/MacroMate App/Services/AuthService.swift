@@ -2,6 +2,14 @@ import Foundation
 import Observation
 import Supabase
 
+/// Sign in with Apple needs a paid Apple Developer Program account (capability + entitlement
+/// `com.apple.developer.applesignin`). Set to true, re-add the entitlement to MacroMate.entitlements,
+/// and enable the Apple provider in Supabase once the account exists. Guideline 4.8 requires it
+/// whenever another third-party login (Google) is offered.
+enum Features {
+    static let signInWithApple = false
+}
+
 /// Signed-in account (from the Supabase session).
 nonisolated struct AuthUser: Equatable, Sendable {
     let uid: String

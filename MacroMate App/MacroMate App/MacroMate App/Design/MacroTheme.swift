@@ -274,6 +274,21 @@ struct MacroBar: View {
     }
 }
 
+// MARK: - Greeting (same thresholds as LabMate/GymMate)
+
+nonisolated enum MacroGreeting {
+    static func timeOfDay(hour: Int = Calendar.current.component(.hour, from: Date())) -> String {
+        if hour < 12 { return "Good morning" }
+        if hour < 18 { return "Good afternoon" }
+        return "Good evening"
+    }
+
+    static func firstName(of name: String?) -> String? {
+        guard let first = name?.split(separator: " ").first, !first.isEmpty else { return nil }
+        return String(first)
+    }
+}
+
 // MARK: - Page scaffold
 
 /// Grouped-grey scrolling page with the standard Health horizontal padding.

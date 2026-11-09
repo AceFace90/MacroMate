@@ -37,14 +37,16 @@ struct SplashView: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
-                Button { Task { await store.signInWithApple() } } label: {
-                    Label("Sign in with Apple", systemImage: "apple.logo").frame(maxWidth: .infinity)
+                if Features.signInWithApple {
+                    Button { Task { await store.signInWithApple() } } label: {
+                        Label("Sign in with Apple", systemImage: "apple.logo").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent).tint(.primary).controlSize(.large).disabled(store.auth.isSigningIn)
                 }
-                .buttonStyle(.borderedProminent).tint(.primary).controlSize(.large).disabled(store.auth.isSigningIn)
                 Button { Task { await store.signIn() } } label: {
                     Text(store.auth.isSigningIn ? "Signing in..." : "Sign in with Google").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered).controlSize(.large).disabled(store.auth.isSigningIn)
+                .buttonStyle(.borderedProminent).tint(MacroColor.calories).controlSize(.large).disabled(store.auth.isSigningIn)
                 Button("Continue without an account") { store.continueWithoutAccount() }
                     .controlSize(.large)
             }

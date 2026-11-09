@@ -330,7 +330,7 @@ nonisolated struct Targets: Equatable, Sendable {
 nonisolated enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
     case auto, light, dark
     var id: String { rawValue }
-    var title: String { switch self { case .auto: "Automatic"; case .light: "Light"; case .dark: "Dark" } }
+    var title: String { switch self { case .auto: "System"; case .light: "Light"; case .dark: "Dark" } }
     var colorScheme: ColorScheme? {
         switch self {
         case .light: .light

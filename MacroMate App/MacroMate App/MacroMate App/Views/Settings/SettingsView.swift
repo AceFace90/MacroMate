@@ -87,7 +87,7 @@ struct SettingsView: View {
                     .clipShape(.circle)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(store.user?.displayName ?? store.profile.name ?? "MacroMate").font(.title3.weight(.bold))
+                    Text(store.user?.displayName ?? store.profile.name ?? "Your profile").font(.title3.weight(.bold))
                     Text(store.user?.email ?? "Stored on this device")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -98,11 +98,13 @@ struct SettingsView: View {
                 Button("Sign Out", role: .destructive) { confirmSignOut = true }
                 Button("Delete Account", role: .destructive) { confirmDelete = true }
             } else {
-                Button { Task { await store.signInWithApple() } } label: {
-                    MacroLinkLabel(title: store.auth.isSigningIn ? "Signing in..." : "Sign in with Apple",
-                                   symbol: "apple.logo")
+                if Features.signInWithApple {
+                    Button { Task { await store.signInWithApple() } } label: {
+                        MacroLinkLabel(title: store.auth.isSigningIn ? "Signing in..." : "Sign in with Apple",
+                                       symbol: "apple.logo")
+                    }
+                    .disabled(store.auth.isSigningIn)
                 }
-                .disabled(store.auth.isSigningIn)
                 Button { Task { await store.signIn() } } label: {
                     MacroLinkLabel(title: store.auth.isSigningIn ? "Signing in..." : "Sign in with Google",
                                    symbol: "person.crop.circle.badge.checkmark")
@@ -123,7 +125,11 @@ struct SettingsView: View {
             Toggle(isOn: Binding(
                 get: { store.healthEnabled },
                 set: { store.healthEnabled = $0 })) {   // enabling triggers syncHealth(days: 7, requestAccess: true)
-                Label("Apple Health", systemImage: "heart.fill").foregroundStyle(MacroColor.critical)
+                Label {
+                    Text("Apple Health")
+                } icon: {
+                    Image(systemName: "heart.fill").foregroundStyle(MacroColor.critical)
+                }
             }
             if store.healthEnabled {
                 Button { Task { await store.syncHealth(days: 7, requestAccess: true) } } label: {

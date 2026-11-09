@@ -17,7 +17,11 @@ struct TodayView: View {
         MacroPage {
             DayNavigator(day: $router.selectedDate)
 
+            chipStrip(totals, targets)
+                .padding(.horizontal, -MacroMetrics.pagePadding)
+
             VStack(alignment: .leading, spacing: 6) {
+                Text(greetingLine).font(.subheadline).foregroundStyle(.secondary)
                 Text(headline(totals, targets)).macroHeadline()
                 Text(narrative(totals, targets, hasEntries)).macroNarrative()
             }
@@ -25,9 +29,6 @@ struct TodayView: View {
             MacroCard {
                 MacroRings(totals: totals, targets: targets).frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                macroRow("Protein", totals.protein, Double(targets.protein), MacroColor.protein)
-                macroRow("Carbs", totals.carbs, Double(targets.carbs), MacroColor.carbs)
-                macroRow("Fat", totals.fat, Double(targets.fat), MacroColor.fat)
             }
 
             if !hasEntries {
@@ -77,14 +78,28 @@ struct TodayView: View {
         return "Protein target hit. \(Int(t.calories.rounded())) of \(g.calories) kcal so far."
     }
 
-    private func macroRow(_ label: String, _ value: Double, _ goal: Double, _ color: Color) -> some View {
-        VStack(spacing: 6) {
-            HStack {
-                Text(label).font(.subheadline.weight(.medium))
-                Spacer()
-                Text("\(TodayFormat.g(value)) / \(Int(goal)) g").font(.subheadline).foregroundStyle(.secondary)
+    private var greetingLine: String {
+        let name = MacroGreeting.firstName(of: store.user?.displayName ?? store.profile.name)
+        return name.map { "\(MacroGreeting.timeOfDay()), \($0)" } ?? MacroGreeting.timeOfDay()
+    }
+
+    /// LabMate-style chip strip; grams live here so the card can be rings only.
+    private func chipStrip(_ t: MacroTotals, _ g: Targets) -> some View {
+        func fraction(_ v: Double, _ goal: Int) -> Double { goal > 0 ? min(1, max(0, v / Double(goal))) : 0 }
+        func chip(_ title: String, _ value: String, _ f: Double, _ color: Color) -> some View {
+            SummaryChip(title: title, value: value) {
+                ScoreRing(segments: [(f, color)], label: "", lineWidth: 5, size: 30)
             }
-            MacroBar(value: value, goal: goal, color: color)
+            .accessibilityElement(children: .combine)
+        }
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                chip("Calories", "\(Int(t.calories.rounded())) / \(g.calories)", fraction(t.calories, g.calories), MacroColor.calories)
+                chip("Protein", "\(TodayFormat.g(t.protein)) / \(g.protein) g", fraction(t.protein, g.protein), MacroColor.protein)
+                chip("Carbs", "\(TodayFormat.g(t.carbs)) / \(g.carbs) g", fraction(t.carbs, g.carbs), MacroColor.carbs)
+                chip("Fat", "\(TodayFormat.g(t.fat)) / \(g.fat) g", fraction(t.fat, g.fat), MacroColor.fat)
+            }
+            .padding(.horizontal, MacroMetrics.pagePadding)
         }
     }
 }
