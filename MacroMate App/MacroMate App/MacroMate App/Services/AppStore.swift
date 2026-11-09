@@ -239,6 +239,18 @@ final class AppStore {
         }
     }
 
+    func signInWithApple() async {
+        do { try await auth.signInWithApple() }
+        catch {
+            if (error as NSError).code != 1 { report("Sign-in failed: \(error.localizedDescription)") }
+        }
+    }
+
+    func deleteAccount() async {
+        do { try await auth.deleteAccount() }
+        catch { report("Couldn't delete account: \(error.localizedDescription)") }
+    }
+
     func signOut() async {
         do { try await auth.signOut() } catch { report("Sign-out failed: \(error.localizedDescription)") }
     }

@@ -56,7 +56,7 @@ jobs:
           cp public/manifest.json dist/manifest.json
           cp assets/icon-192.png dist/assets/icon-192.png 2>/dev/null || true
           cp assets/icon-512.png dist/assets/icon-512.png 2>/dev/null || true
-          cp public/favicon-16.png public/favicon-32.png public/apple-touch-icon.png dist/
+          cp public/favicon-16.png public/favicon-32.png public/apple-touch-icon.png public/privacy.html dist/
           # Drop Expo's default root-relative favicon link (wrong path under /MacroMate/)
           sed -i 's|<link rel="shortcut icon" href="/favicon.ico" />||' dist/index.html
 

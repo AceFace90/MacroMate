@@ -90,6 +90,8 @@ function ValueRow({ label, value, last }) {
   );
 }
 
+const AFCD_URL = 'https://www.foodstandards.gov.au/science-data/food-nutrient-databases/afcd';
+
 export default function SettingsScreen() {
   const { theme, preference, setTheme } = useTheme();
   const { hasKey, saveKey } = useGeminiKey();
@@ -220,8 +222,11 @@ export default function SettingsScreen() {
           {/* ABOUT */}
           <Section title="About">
             <ValueRow label="Version" value="2.0.0" />
-            <ValueRow label="Food database" value="AFCD + OpenNutrition + Open Food Facts" />
-            <ValueRow label="Companion App" value="GymMate" last />
+            <ValueRow
+              label="Companion apps"
+              value={<>{link('GymMate', 'https://aceface90.github.io/GymMate/')}{' · '}{link('LabMate', 'https://aceface90.github.io/LabMate/')}</>}
+              last
+            />
           </Section>
 
           {/* DATA SOURCES */}
@@ -235,7 +240,7 @@ export default function SettingsScreen() {
                 {' (ODbL), '}
                 {link('© Open Food Facts contributors', 'https://world.openfoodfacts.org')}
                 {' (ODbL), and the '}
-                <Text style={{ fontWeight: '600' }}>Australian AFCD</Text>
+                {link('Australian AFCD', AFCD_URL)}
                 {'. Nutritional values are estimates only and are not intended for medical use.'}
               </Text>
             </View>

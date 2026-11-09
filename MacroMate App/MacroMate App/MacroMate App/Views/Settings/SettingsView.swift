@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppStore.self) private var store
 
     @State private var confirmSignOut = false
+    @State private var confirmDelete = false
     @State private var keyInput = ""
     @State private var keySaved = false
 
@@ -36,6 +37,12 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
         .onAppear { keyInput = store.geminiKey; store.ai.refreshAvailability() }
+        .confirmationDialog("Delete your account?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete Account", role: .destructive) { Task { await store.deleteAccount() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account and all synced logs and profile data. This can't be undone.")
+        }
         .confirmationDialog("Sign out of MacroMate?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { Task { await store.signOut() } }
             Button("Cancel", role: .cancel) {}
@@ -71,7 +78,13 @@ struct SettingsView: View {
 
             if store.isSignedIn {
                 Button("Sign Out", role: .destructive) { confirmSignOut = true }
+                Button("Delete Account", role: .destructive) { confirmDelete = true }
             } else {
+                Button { Task { await store.signInWithApple() } } label: {
+                    MacroLinkLabel(title: store.auth.isSigningIn ? "Signing in..." : "Sign in with Apple",
+                                   symbol: "apple.logo")
+                }
+                .disabled(store.auth.isSigningIn)
                 Button { Task { await store.signIn() } } label: {
                     MacroLinkLabel(title: store.auth.isSigningIn ? "Signing in..." : "Sign in with Google",
                                    symbol: "person.crop.circle.badge.checkmark")
@@ -129,7 +142,7 @@ struct SettingsView: View {
         } header: {
             Text("AI Photo & Text Logging")
         } footer: {
-            Text("On-device processing keeps photos on your iPhone. Apple Intelligence is tried first, then Private Cloud Compute. Gemini is used only if both are unavailable or fail, and only when you add a key. Your key stays in the Keychain, is never synced, and is sent only to Google's Gemini API.")
+            Text("On-device processing keeps photos on your iPhone. Apple Intelligence is tried first, then Private Cloud Compute. Gemini is used only if both are unavailable or fail, and only when you add a key. Your key stays in the Keychain, is never synced, and is sent only to Google's Gemini API. If you add a key, the text or photos you analyse are sent to Google's Gemini service; leave it blank to keep everything on Apple's systems.")
         }
     }
 
@@ -148,6 +161,9 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Version", value: appVersion)
+            Link(destination: URL(string: "https://aceface90.github.io/MacroMate/privacy.html")!) {
+                Label("Privacy Policy", systemImage: "hand.raised")
+            }
             Link(destination: URL(string: "https://www.opennutrition.app")!) {
                 LabeledContent("OpenNutrition", value: "ODbL")
             }

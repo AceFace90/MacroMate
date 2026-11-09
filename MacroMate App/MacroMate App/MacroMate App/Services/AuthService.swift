@@ -54,6 +54,18 @@ final class AuthService {
         try await client.auth.signInWithOAuth(provider: .google, redirectTo: SupabaseConfig.redirectURL)
     }
 
+    func signInWithApple() async throws {
+        isSigningIn = true
+        defer { isSigningIn = false }
+        try await client.auth.signInWithOAuth(provider: .apple, redirectTo: SupabaseConfig.redirectURL)
+    }
+
+    /// Deletes the user's cloud data and auth account (server-side `delete_my_account` function), then signs out locally.
+    func deleteAccount() async throws {
+        try await client.rpc("delete_my_account").execute()
+        try? await client.auth.signOut(scope: .local)
+    }
+
     func signOut() async throws {
         try await client.auth.signOut(scope: .local)
     }
