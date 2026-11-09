@@ -43,6 +43,8 @@ jobs:
         run: |
           sed -i 's|"/_expo/|"/MacroMate/_expo/|g' dist/index.html
           sed -i 's|src="/_expo/|src="/MacroMate/_expo/|g' dist/index.html
+          # Bundled images (require('…png')) are requested from /assets/… — prefix the subdirectory
+          find dist/_expo/static/js -name "*.js" -exec sed -i 's|httpServerLocation:"/assets|httpServerLocation:"/MacroMate/assets|g' {} +
 
           IONICONS_FILE=$(find dist/assets -name "Ionicons.*.ttf" | head -1 | sed 's|dist/||')
           if [ -n "$IONICONS_FILE" ]; then
@@ -54,8 +56,11 @@ jobs:
           cp public/manifest.json dist/manifest.json
           cp assets/icon-192.png dist/assets/icon-192.png 2>/dev/null || true
           cp assets/icon-512.png dist/assets/icon-512.png 2>/dev/null || true
+          cp public/favicon-16.png public/favicon-32.png public/apple-touch-icon.png dist/
+          # Drop Expo's default root-relative favicon link (wrong path under /MacroMate/)
+          sed -i 's|<link rel="shortcut icon" href="/favicon.ico" />||' dist/index.html
 
-          META_TAGS='<link rel="manifest" href="/MacroMate/manifest.json"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="MacroMate"><link rel="apple-touch-icon" href="/MacroMate/assets/icon-192.png"><meta name="theme-color" content="#1a1a1a">'
+          META_TAGS='<link rel="manifest" href="/MacroMate/manifest.json"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="MacroMate"><link rel="icon" type="image/png" sizes="32x32" href="/MacroMate/favicon-32.png"><link rel="icon" type="image/png" sizes="16x16" href="/MacroMate/favicon-16.png"><link rel="apple-touch-icon" href="/MacroMate/apple-touch-icon.png"><meta name="theme-color" content="#1a1a1a">'
           sed -i "s|</head>|${META_TAGS}</head>|" dist/index.html
 
           cp dist/index.html dist/404.html
