@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, TextInput, Alert, Platform, Image,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useGeminiKey } from '../hooks/useGeminiKey';
-import { signOut, getSession } from '../services/auth';
+import { signOut, getSession, deleteAllData, deleteAccount } from '../services/auth';
 import { fontFamily, breakpoints } from '../theme';
 import Icon from '../components/Icon';
 
@@ -90,6 +90,17 @@ function ValueRow({ label, value, last }) {
   );
 }
 
+function confirmAction(title, message, confirmLabel, onConfirm) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: confirmLabel, style: 'destructive', onPress: onConfirm },
+    ]);
+  }
+}
+
 const PRIVACY_URL = 'https://aceface90.github.io/MacroMate/privacy.html';
 const AFCD_URL = 'https://www.foodstandards.gov.au/science-data/food-nutrient-databases/afcd';
 
@@ -100,18 +111,46 @@ export default function SettingsScreen() {
   const [keyInput, setKeyInput] = useState('');
   const [units, setUnitsState] = useState('metric');
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [photo, setPhoto] = useState('');
 
   useEffect(() => {
     AsyncStorage.getItem(UNITS_KEY).then((val) => {
       if (val) setUnitsState(val);
     });
-    getSession().then((s) => setEmail(s?.user?.email || '')).catch(() => {});
+    getSession().then((s) => {
+      const u = s?.user;
+      const meta = u?.user_metadata || {};
+      setEmail(u?.email || '');
+      setDisplayName(meta.full_name || meta.name || '');
+      setPhoto(meta.avatar_url || meta.picture || '');
+    }).catch(() => {});
   }, []);
 
   const handleUnitsSelect = async (val) => {
     setUnitsState(val);
     await AsyncStorage.setItem(UNITS_KEY, val);
   };
+
+  const fail = (e) => {
+    const msg = e?.message ?? String(e);
+    if (Platform.OS === 'web') window.alert(`Couldn't complete that: ${msg}`);
+    else Alert.alert('Error', msg);
+  };
+  const handleDeleteData = () => confirmAction(
+    'Delete all data?',
+    'This permanently removes every food log and your profile from your account. Your sign-in stays active. There is no undo.',
+    'Delete All Data',
+    () => deleteAllData()
+      .then(() => { if (Platform.OS === 'web') window.location.reload(); else Alert.alert('Done', 'All data deleted.'); })
+      .catch(fail),
+  );
+  const handleDeleteAccount = () => confirmAction(
+    'Delete your account?',
+    'This permanently deletes your account and all synced data. There is no undo.',
+    'Delete Account',
+    () => deleteAccount().catch(fail),
+  );
 
   const bottomPad = width < breakpoints.desktop ? 96 : 40;
   const initial = (email || '?').trim().charAt(0).toUpperCase();
@@ -130,25 +169,30 @@ export default function SettingsScreen() {
           <Text style={[styles.title, { color: theme.text, fontFamily }]} accessibilityRole="header">Settings</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily }]}>Your profile, appearance and account.</Text>
 
+          {/* PROFILE CARD */}
+          <View style={[styles.group, styles.profileCard, { backgroundColor: theme.card }]}>
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.avatar} accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
+                <Text style={[styles.avatarText, { color: theme.accentContrast, fontFamily }]}>{initial}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.profileName, { color: theme.text, fontFamily }]} numberOfLines={1}>
+                {displayName || (email ? email.split('@')[0] : 'Signed in')}
+              </Text>
+              {email ? <Text style={[styles.profileEmail, { color: theme.textSecondary, fontFamily }]} numberOfLines={1}>{email}</Text> : null}
+            </View>
+          </View>
+
           {/* ACCOUNT */}
           <Section
             title="Account"
             footer={<Text style={[styles.footer, { color: theme.textSecondary, fontFamily }]}>Your data syncs to this account and is available on any device you sign into.</Text>}
           >
-            <Row style={styles.accountRow}>
-              <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-                <Text style={[styles.avatarText, { color: theme.accentContrast, fontFamily }]}>{initial}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: theme.text, fontFamily }]} numberOfLines={1}>
-                  {email || 'Signed in'}
-                </Text>
-                <Text style={[styles.subText, { color: theme.textSecondary, fontFamily }]}>MacroMate account</Text>
-              </View>
-            </Row>
-            <Row last onPress={() => signOut()} accessibilityLabel="Sign out">
-              <Icon name="signOut" size={20} color={theme.danger} />
-              <Text style={[styles.rowLabel, { color: theme.danger, fontFamily }]}>Sign out</Text>
+            <Row last onPress={() => signOut()} accessibilityLabel="Log out">
+              <Text style={[styles.rowLabel, { color: theme.danger, fontFamily }]}>Log Out</Text>
             </Row>
           </Section>
 
@@ -220,6 +264,23 @@ export default function SettingsScreen() {
             ) : null}
           </Section>
 
+          {/* YOUR DATA */}
+          {email ? (
+            <Section
+              title="Your data"
+              footer={<Text style={[styles.footer, { color: theme.textSecondary, fontFamily }]}>Delete All Data permanently removes every food log and your profile from your account (your sign-in stays active). Delete Account removes the account itself and all synced data. There is no undo.</Text>}
+            >
+              <Row onPress={handleDeleteData} accessibilityLabel="Delete all data">
+                <Icon name="trash" size={20} color={theme.danger} />
+                <Text style={[styles.rowLabel, { color: theme.danger, fontFamily }]}>Delete All Data</Text>
+              </Row>
+              <Row last onPress={handleDeleteAccount} accessibilityLabel="Delete account">
+                <Icon name="warning" size={20} color={theme.danger} />
+                <Text style={[styles.rowLabel, { color: theme.danger, fontFamily }]}>Delete Account</Text>
+              </Row>
+            </Section>
+          ) : null}
+
           {/* ABOUT */}
           <Section title="About">
             <ValueRow label="Version" value="2.0.0" />
@@ -270,8 +331,10 @@ const styles = StyleSheet.create({
   rowLabel:      { fontSize: 17 },
   rowValue:      { fontSize: 17, flex: 1, textAlign: 'right' },
   subText:       { fontSize: 13, marginTop: 1 },
-  accountRow:    { paddingVertical: 14 },
-  avatar:        { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  profileCard:   { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 24 },
+  profileName:   { fontSize: 22, fontWeight: '700' },
+  profileEmail:  { fontSize: 15, marginTop: 1 },
+  avatar:        { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   avatarText:    { fontSize: 20, fontWeight: '600' },
   segRow:        { paddingVertical: 8 },
   segTrack:      { flex: 1, flexDirection: 'row', borderRadius: 9, padding: 2 },

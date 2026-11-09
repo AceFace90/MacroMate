@@ -55,6 +55,19 @@ export async function signOut() {
   if (error) throw error;
 }
 
+// Permanently deletes the user's logs + profile (account/sign-in stays). Needs docs/SUPABASE-DELETE-ACCOUNT.sql.
+export async function deleteAllData() {
+  const { error } = await supabase.rpc('delete_my_data');
+  if (error) throw error;
+}
+
+// Permanently deletes the account and all synced data, then clears the local session.
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw error;
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return data.session;
