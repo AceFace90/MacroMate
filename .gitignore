@@ -47,3 +47,6 @@ yarn-error.log*
 xcuserdata/
 DerivedData/
 *.xcuserstate
+
+# Local Codex config (contains API key - never commit)
+.codex/
