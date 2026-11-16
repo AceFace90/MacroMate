@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // iOS system palette, matching the native SwiftUI app (Design/MacroTheme.swift) and
 // LabMate's web restyle: grouped-grey canvas, borderless white cards, system green accent.
 export const colors = {
-  // Accent — iOS system green (calories)
+  // Accent — iOS system green (actions/tint)
   accent: '#30d158',           // dark mode
   accentLight: '#34c759',      // light mode
   accentMuted: '#28b84c',
@@ -35,12 +35,13 @@ export const colors = {
   orange: '#ff9500',
   yellow: '#ffcc00',
   blue: '#007aff',
+  success: '#34c759',
 
   // Macro colours — same as the iOS app
   protein: '#3b82f6',  // blue
   carbs: '#f97316',    // orange
   fat: '#eab308',      // yellow
-  calories: '#34c759', // green
+  calories: '#ff375f', // pink (iOS Move) — distinct from the green accent
 };
 
 // Returns theme object based on dark/light mode
@@ -62,6 +63,7 @@ export function getTheme(isDark) {
     accentBg: isDark ? 'rgba(48,209,88,0.14)' : 'rgba(52,199,89,0.1)',
     accentBorder: isDark ? 'rgba(48,209,88,0.35)' : 'rgba(52,199,89,0.3)',
     danger: isDark ? '#ff453a' : '#ff3b30',
+    success: isDark ? '#30d158' : '#34c759',
     link: isDark ? '#0a84ff' : '#007aff',
     isDark,
   };

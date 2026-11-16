@@ -22,6 +22,11 @@ export default function Button({ onPress, title, children, variant = 'primary', 
     danger: '#fff',
   }[variant];
 
+  // Disabled = iOS-style grey fill + grey label (a faded accent reads as a washed-out active button).
+  const isOff = disabled && !loading;
+  const bg = isOff && variant !== 'ghost' ? theme.fill : bgColor;
+  const fg = isOff ? theme.textSecondary : textColor;
+
   const dims = size === 'sm' ? { minHeight: 36, paddingHorizontal: spacing[3], borderRadius: 10 }
     : size === 'lg' ? { minHeight: 54, paddingHorizontal: spacing[6], borderRadius: 14 }
     : { minHeight: 50, paddingHorizontal: spacing[5], borderRadius: 12 };
@@ -33,14 +38,14 @@ export default function Button({ onPress, title, children, variant = 'primary', 
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.7}
-      style={[styles.btn, dims, { backgroundColor: bgColor, opacity: disabled ? 0.45 : 1 }, style]}
+      style={[styles.btn, dims, { backgroundColor: bg, opacity: isOff && variant === 'ghost' ? 0.5 : 1 }, style]}
     >
       {loading ? (
         <ActivityIndicator color={textColor} size="small" />
       ) : (
         <>
           {icon}
-          <Text style={[styles.text, { color: textColor, fontSize, fontFamily, fontWeight: '600' }]}>
+          <Text style={[styles.text, { color: fg, fontSize, fontFamily, fontWeight: '600' }]}>
             {title ?? children}
           </Text>
         </>

@@ -298,7 +298,7 @@ struct MacroPage<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) { content }
                 .padding(.horizontal, MacroMetrics.pagePadding)
-                .padding(.bottom, 32)
+                .padding(.bottom, 110)   // clears the floating tab bar so bottom buttons stay tappable
         }
         .background(MacroColor.canvas.ignoresSafeArea())
     }

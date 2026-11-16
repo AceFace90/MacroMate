@@ -9,8 +9,8 @@ nonisolated struct LocalStore: Sendable {
 
     private let subpath: String
 
-    init() { subpath = "MacroMate" }
-    private init(subpath: String) { self.subpath = subpath }
+    init() { subpath = "MacroMate"; migrateIfNeeded() }
+    private init(subpath: String) { self.subpath = subpath; migrateIfNeeded() }
 
     static func cloudCache(uid: String) -> LocalStore { LocalStore(subpath: "MacroMate/cloud-cache/\(uid)") }
 
@@ -29,6 +29,21 @@ nonisolated struct LocalStore: Sendable {
     private var entriesURL: URL { dir.appendingPathComponent("entries.json") }
     private var profileURL: URL { dir.appendingPathComponent("profile.json") }
     private var savedURL: URL { dir.appendingPathComponent("saved-foods.json") }
+
+
+    // MARK: Schema versioning
+
+    /// Bump when any file's shape changes and add a step to `migrateIfNeeded()`.
+    static let currentSchemaVersion = 1
+    private var versionURL: URL { dir.appendingPathComponent("schema-version.json") }
+
+    /// Runs once per store directory at init. Files written before versioning count as version 0.
+    private func migrateIfNeeded() {
+        let stored = (try? Data(contentsOf: versionURL)).flatMap { try? JSONDecoder().decode(Int.self, from: $0) } ?? 0
+        guard stored < Self.currentSchemaVersion else { return }
+        // v0 -> v1: versioning introduced; no shape change.
+        if let data = try? JSONEncoder().encode(Self.currentSchemaVersion) { try? data.write(to: versionURL, options: .atomic) }
+    }
 
     private static func encoder() -> JSONEncoder {
         let e = JSONEncoder()
@@ -74,7 +89,7 @@ nonisolated struct LocalStore: Sendable {
 
     /// Pretty JSON of everything in `entries` + `profile` (ISO dates, same column names as the cloud).
     static func exportJSON(entries: [String: [FoodEntry]], profile: Profile) -> String {
-        struct Export: Encodable { let exportedAt: Date; let profile: Profile; let logs: [String: [FoodEntry]] }
+        struct Export: Encodable { let schemaVersion = LocalStore.currentSchemaVersion; let exportedAt: Date; let profile: Profile; let logs: [String: [FoodEntry]] }
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         enc.dateEncodingStrategy = .iso8601
