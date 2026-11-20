@@ -40,6 +40,7 @@ export async function fetchAndDecompressGz(url) {
     const blob = await new Response(decompressedStream).blob();
     const text = await blob.text();
     const compressedData = JSON.parse(text);
+    // eslint-disable-next-line import/no-unresolved -- optional legacy decompressor module
     const { decompressDatabase } = await import('../../utils/decompressOpenFoodFacts');
     return decompressDatabase(compressedData);
   } catch (err) {

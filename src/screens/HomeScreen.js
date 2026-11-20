@@ -254,6 +254,7 @@ export default function HomeScreen() {
       return;
     }
     try {
+      // eslint-disable-next-line import/no-unresolved -- optional native-only dependency
       const ImagePicker = await import('expo-image-picker');
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { Alert.alert('Permission needed', 'Photo library permission required.'); return; }

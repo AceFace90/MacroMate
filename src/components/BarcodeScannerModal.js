@@ -80,7 +80,6 @@ function WebBarcodeScanner({ onDetected, onError }) {
   return (
     <View style={styles.webCameraContainer}>
       {!ready && <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color={theme.accent} />}
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         ref={videoRef}
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 20 }}

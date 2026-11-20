@@ -24,6 +24,7 @@ export function getOFFStoreCount(db) {
 export async function getIndexedDB() {
   // Try to use existing database instance from database-web.js
   try {
+    // eslint-disable-next-line import/no-unresolved -- optional legacy web DB module
     const dbModule = await import('../database-web.js');
     const dbService = dbModule.default;
 
